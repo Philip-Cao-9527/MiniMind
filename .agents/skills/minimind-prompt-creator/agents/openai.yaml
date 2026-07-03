@@ -1,0 +1,4 @@
+interface:
+  display_name: "MiniMind Prompt 生成器"
+  short_description: "按 MiniMind AGENTS 生成可执行任务 prompt"
+  default_prompt: "使用 $minimind-prompt-creator 为 MiniMind 项目任务生成一份可直接执行的中文 prompt。"

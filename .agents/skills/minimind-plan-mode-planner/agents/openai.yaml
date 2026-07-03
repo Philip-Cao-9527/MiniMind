@@ -1,0 +1,4 @@
+interface:
+  display_name: "MiniMind Plan 计划器"
+  short_description: "为 MiniMind 先只读探索再生成计划"
+  default_prompt: "使用 $minimind-plan-mode-planner 为 MiniMind 当前任务先生成一份决策完整的执行计划。"
