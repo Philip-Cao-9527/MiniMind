@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Downloaded datasets: keep dataset source code, ignore large local data files
+/dataset/*.json
+/dataset/*.jsonl
+/dataset/*.parquet
+/dataset/*.arrow
+/dataset/*.npy
+/dataset/*.npz
+
+# Training artifacts
+/out/
+/checkpoints/
+*.pt
+*.pth
+*.safetensors
+
+# Downloaded Transformers-format model directories
+/minimind-3/
+/scripts/minimind-3/
+
+# Experiment platforms and local caches
+wandb/
+swanlog/
+.runs/
