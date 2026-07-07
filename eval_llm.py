@@ -1,6 +1,5 @@
 import argparse
 import json
-import os
 import random
 import time
 import warnings
@@ -14,10 +13,40 @@ from model.model_lora import *
 from trainer.trainer_utils import setup_seed, get_model_params
 warnings.filterwarnings('ignore')
 
+PROJECT_ROOT = Path(__file__).resolve().parent
+
+
+def resolve_save_dir(save_dir):
+    save_dir_path = Path(save_dir)
+    return save_dir_path if save_dir_path.is_absolute() else PROJECT_ROOT / save_dir_path
+
+
+def resolve_output_file_path(output_file):
+    output_path = Path(output_file)
+    return output_path if output_path.is_absolute() else PROJECT_ROOT / output_path
+
+
+def resolve_load_from(load_from):
+    load_from_path = Path(load_from)
+    if load_from_path.is_absolute():
+        return load_from_path, True
+    if load_from == 'model':
+        return PROJECT_ROOT / 'model', True
+    project_local_path = PROJECT_ROOT / load_from_path
+    if project_local_path.exists():
+        return project_local_path, True
+    return load_from, False
+
+
 def init_model(args):
-    tokenizer = AutoTokenizer.from_pretrained(args.load_from)
-    model_path = os.path.abspath(args.load_from) if os.path.exists(args.load_from) else args.load_from
-    if 'model' in args.load_from:
+    resolved_load_from, is_local_load_from = resolve_load_from(args.load_from)
+    resolved_save_dir = resolve_save_dir(args.save_dir)
+    tokenizer_source = str(resolved_load_from) if is_local_load_from else resolved_load_from
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_source)
+    native_model_dir = PROJECT_ROOT / 'model'
+    native_mode = is_local_load_from and Path(resolved_load_from) == native_model_dir
+    model_path = tokenizer_source
+    if native_mode:
         model = MiniMindForCausalLM(MiniMindConfig(
             hidden_size=args.hidden_size,
             num_hidden_layers=args.num_hidden_layers,
@@ -25,14 +54,15 @@ def init_model(args):
             inference_rope_scaling=args.inference_rope_scaling
         ))
         moe_suffix = '_moe' if args.use_moe else ''
-        ckp = f'./{args.save_dir}/{args.weight}_{args.hidden_size}{moe_suffix}.pth'
-        model_path = os.path.abspath(ckp)
+        ckp = resolved_save_dir / f'{args.weight}_{args.hidden_size}{moe_suffix}.pth'
+        model_path = str(ckp)
         model.load_state_dict(torch.load(ckp, map_location=args.device), strict=True)
         if args.lora_weight != 'None':
             apply_lora(model)
-            load_lora(model, f'./{args.save_dir}/{args.lora_weight}_{args.hidden_size}.pth')
+            lora_path = resolved_save_dir / f'{args.lora_weight}_{args.hidden_size}.pth'
+            load_lora(model, str(lora_path))
     else:
-        model = AutoModelForCausalLM.from_pretrained(args.load_from, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(tokenizer_source, trust_remote_code=True)
     get_model_params(model, model.config)
     return model.half().eval().to(args.device), tokenizer, model_path
 
@@ -47,7 +77,7 @@ def validate_args(parser, args):
 def prepare_output_file(output_file):
     if not output_file:
         return None
-    output_path = Path(output_file)
+    output_path = resolve_output_file_path(output_file)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if output_path.exists():
         raise FileExistsError(f'输出文件已存在，拒绝覆盖: {output_path}')
@@ -75,14 +105,10 @@ def main():
     parser.add_argument('--use_cache', default=1, type=int, choices=[0, 1], help="是否启用KV Cache（0=否，1=是）")
     parser.add_argument('--do_sample', default=1, type=int, choices=[0, 1], help="是否启用采样（0=否，1=是）")
     parser.add_argument('--stream', default=1, type=int, choices=[0, 1], help="是否启用控制台流式输出（0=否，1=是）")
-    parser.add_argument('--output_file', default=None, type=str, help="结构化JSONL输出路径；若存在则拒绝覆盖")
+    parser.add_argument('--output_file', default=None, type=str, help="结构化JSONL输出路径；相对路径相对项目根目录解析，若存在则拒绝覆盖")
     parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu', type=str, help="运行设备")
     args = parser.parse_args()
     validate_args(parser, args)
-    try:
-        output_fp = prepare_output_file(args.output_file)
-    except FileExistsError as exc:
-        parser.error(str(exc))
     
     prompts = [
         '你有什么特长？',
@@ -98,8 +124,14 @@ def main():
     conversation = []
     model, tokenizer, model_path = init_model(args)
     streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True) if args.stream == 1 else None
+    output_fp = None
 
     try:
+        try:
+            output_fp = prepare_output_file(args.output_file)
+        except FileExistsError as exc:
+            parser.error(str(exc))
+
         if args.prompt:
             prompt_iter = args.prompt
             prompt_mode = 'fixed'
@@ -190,6 +222,7 @@ def main():
                     "tokens_per_second": tokens_per_second
                 }
                 output_fp.write(json.dumps(record, ensure_ascii=False) + '\n')
+                output_fp.flush()
     finally:
         if output_fp is not None:
             output_fp.close()

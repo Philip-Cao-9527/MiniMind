@@ -181,4 +181,4 @@ printf 'Recommended Windows PowerShell follow-ups:\n'
 printf 'wsl -d Ubuntu-24.04 -- cat %s\n' "${manifest_path}"
 printf 'wsl -d Ubuntu-24.04 -- screen -ls\n'
 printf 'wsl -d Ubuntu-24.04 -- bash -lc "ps -eo pid,ppid,tty,etime,cmd | grep '\''[t]rain_full_sft.py'\''"\n'
-printf 'wsl -d Ubuntu-24.04 -- bash -lc "source %s && bash %s \"\$MONITOR_CSV_PATH\""\n' "${manifest_path}" "${monitor_script}"
+printf 'wsl -d Ubuntu-24.04 -- bash %s\n' "${monitor_script}"

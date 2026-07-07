@@ -65,6 +65,11 @@
    - 不改变生成语义，只避免无谓 autograd 状态
 10. Meta 输出
    - 输出 `model_path`、`seed`、`use_cache`、`do_sample`、`ended_with_eos`、`elapsed_seconds`、`tokens_per_second` 等证据字段
+11. 项目路径锚定
+   - `eval_llm.py` 现在用脚本自身目录作为 `PROJECT_ROOT`
+   - 相对 `save_dir` 会相对项目根目录解析
+   - `--load_from model` 会稳定解析到项目内 `model/`
+   - 其他本地相对目录仅在项目根下真实存在时才改写为本地绝对路径，不会误改 Hugging Face 模型 ID
 
 上游归属说明：
 
@@ -307,7 +312,7 @@ wsl -d Ubuntu-24.04 -- bash -lc "ps -eo pid,ppid,tty,etime,cmd | grep '[t]rain_f
 核验 manifest 中记录的当前 screen、日志和推荐监控 CSV 路径：
 
 ```powershell
-wsl -d Ubuntu-24.04 -- bash -lc "source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && printf 'screen=%s\nlog=%s\nmonitor_csv=%s\n' \"\$SCREEN_SESSION\" \"\$LOG_PATH\" \"\$MONITOR_CSV_PATH\""
+wsl -d Ubuntu-24.04 -- bash -lc 'grep -E "^(SCREEN_SESSION|LOG_PATH|MONITOR_CSV_PATH)=" /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env'
 ```
 
 ## 11. 在 Windows PowerShell 执行：启动内存监控
@@ -315,26 +320,40 @@ wsl -d Ubuntu-24.04 -- bash -lc "source /home/harry/projects/MiniMind/experiment
 在确认训练 screen 与唯一 Python PID 后，再手动启动监控：
 
 ```powershell
-wsl -d Ubuntu-24.04 -- bash -lc "source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && bash /home/harry/projects/MiniMind/scripts/monitor_full_sft_memory.sh \"\$MONITOR_CSV_PATH\""
+wsl -d Ubuntu-24.04 -- bash /home/harry/projects/MiniMind/scripts/monitor_full_sft_memory.sh
 ```
 
 说明：
 
 - 监控脚本不会自动随训练启动
 - 是否启动监控仍由用户显式控制
+- 该命令会持续占用当前 PowerShell 窗口
+- 请在第二个 Windows PowerShell 窗口中启动
+- 监控窗口必须保持打开
+- 关闭该 PowerShell 只会停止监控，不会停止训练 screen
 
 ## 12. 在 Windows PowerShell 执行：查看日志、CSV 与 artifact mtime
 
 查看最新日志尾部：
 
 ```powershell
-wsl -d Ubuntu-24.04 -- bash -lc "source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && tail -n 80 \"\$LOG_PATH\""
+wsl -d Ubuntu-24.04 -- bash -lc 'source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && tail -n 80 "$LOG_PATH"'
 ```
 
 查看最新监控 CSV 一行：
 
 ```powershell
-wsl -d Ubuntu-24.04 -- bash -lc "source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && tail -n 1 \"\$MONITOR_CSV_PATH\""
+wsl -d Ubuntu-24.04 -- bash -lc 'source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && tail -n 1 "$MONITOR_CSV_PATH"'
+```
+
+格式化读取最新内存样本：
+
+```powershell
+$line = wsl -d Ubuntu-24.04 -- bash -lc 'source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && tail -n 1 "$MONITOR_CSV_PATH"'
+$c = $line -split ','
+
+"latest={0} | VmRSS={1:N1} MiB | VmSwap={2:N1} MiB | system_swap={3:N1} MiB | MemAvailable={4:N2} GiB | RssAnon={5:N1} MiB | RssFile={6:N1} MiB" -f `
+  $c[0], ([double]$c[4] / 1024), ([double]$c[5] / 1024), ([double]$c[3] / 1024), ([double]$c[2] / 1048576), ([double]$c[6] / 1024), ([double]$c[7] / 1024)
 ```
 
 查看权重与 resume checkpoint 的 `mtime`：
@@ -349,6 +368,21 @@ wsl -d Ubuntu-24.04 -- stat -c "%n | size=%s bytes | mtime=%y" /home/harry/proje
 - `train_full_sft.py` 是否仍是唯一 Python writer
 - CSV 中的 `VmRSS`、`VmSwap`、系统 `swap_used_kb`、`MemAvailable`
 - 权重与 resume checkpoint 的 `mtime` 是否推进
+- 当前 full SFT 监控 CSV 字段顺序与 pretrain 监控相同：
+  - 第 1 列：`timestamp`
+  - 第 2 列：`pid`
+  - 第 3 列：`mem_available_kb`
+  - 第 4 列：`swap_used_kb`
+  - 第 5 列：`vmrss_kb`
+  - 第 6 列：`vmswap_kb`
+  - 第 7 列：`rssanon_kb`
+  - 第 8 列：`rssfile_kb`
+  - 第 9 列：`checkpoint_mtime_epoch`
+- PowerShell 数组从 `0` 开始，因此：
+  - 第 3 列 `MemAvailable` 对应 `$c[2]`
+  - 第 4 列 `swap_used_kb` 对应 `$c[3]`
+  - 第 5 列 `VmRSS` 对应 `$c[4]`
+  - 第 6 列 `VmSwap` 对应 `$c[5]`
 
 ## 13. 在 Windows PowerShell 执行：SFT 结束后的验收
 
@@ -357,8 +391,8 @@ wsl -d Ubuntu-24.04 -- stat -c "%n | size=%s bytes | mtime=%y" /home/harry/proje
 ```powershell
 wsl -d Ubuntu-24.04 -- screen -ls
 wsl -d Ubuntu-24.04 -- bash -lc "ps -eo pid,ppid,tty,etime,cmd | grep '[t]rain_full_sft.py' || true"
-wsl -d Ubuntu-24.04 -- bash -lc "source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && tail -n 120 \"\$LOG_PATH\""
-wsl -d Ubuntu-24.04 -- bash -lc "source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && rg -n 'Traceback|RuntimeError|CUDA out of memory|OutOfMemory|KeyboardInterrupt|FileNotFoundError|Error:' \"\$LOG_PATH\" || true"
+wsl -d Ubuntu-24.04 -- bash -lc 'source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && tail -n 120 "$LOG_PATH"'
+wsl -d Ubuntu-24.04 -- bash -lc 'source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && rg -n "Traceback|RuntimeError|CUDA out of memory|OutOfMemory|KeyboardInterrupt|FileNotFoundError|Error:" "$LOG_PATH" || true'
 wsl -d Ubuntu-24.04 -- stat -c "%n | size=%s bytes | mtime=%y" /home/harry/projects/MiniMind/out/full_sft_768.pth /home/harry/projects/MiniMind/checkpoints/full_sft_768_resume.pth
 ```
 
@@ -411,6 +445,7 @@ wsl -d Ubuntu-24.04 -- stat -c "%n | size=%s bytes | mtime=%y" /home/harry/proje
 
 参数语义边界：
 
+- `eval_llm.py` 不再依赖外部当前工作目录来解析项目内 `model/` 与 `out/`；文档命令仍显式 `cd /home/harry/projects/MiniMind`，便于人工复核
 - `do_sample=0` 时，`temperature`、`top_p`、`top_k` 仍会被记录，但不应写成影响贪心输出的随机因素
 - 固定 seed 对 `do_sample=0` 的输出通常不是核心决定因素，但仍应记录
 - cache off 的慢速路径是预期比较对象，不应直接认定为异常
@@ -421,27 +456,27 @@ wsl -d Ubuntu-24.04 -- stat -c "%n | size=%s bytes | mtime=%y" /home/harry/proje
 
 未来推理输出文件必须分开保存，例如：
 
-- `/home/harry/projects/MiniMind/experiments/inference/full-sft-fixed-cache-on-<timestamp>.jsonl`
-- `/home/harry/projects/MiniMind/experiments/inference/full-sft-fixed-cache-off-<timestamp>.jsonl`
+- `/home/harry/projects/MiniMind/experiments/inference/full-sft-fixed-cache-on-$RunId.jsonl`
+- `/home/harry/projects/MiniMind/experiments/inference/full-sft-fixed-cache-off-$RunId.jsonl`
 
 ### 15.1 固定 prompt 基线
 
 ```powershell
-wsl -d Ubuntu-24.04 -- /home/harry/projects/MiniMind/.venv/bin/python /home/harry/projects/MiniMind/eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt "请用三句话介绍你自己。" --seed 42 --do_sample 0 --use_cache 1 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --historys 0 --open_thinking 0 --stream 0 --output_file /home/harry/projects/MiniMind/experiments/inference/full-sft-fixed-baseline-<timestamp>.jsonl
+$RunId = Get-Date -Format 'yyyyMMdd-HHmmss'
+$OutputPath = "/home/harry/projects/MiniMind/experiments/inference/full-sft-fixed-baseline-$RunId.jsonl"
+wsl -d Ubuntu-24.04 -- bash -lc "cd /home/harry/projects/MiniMind && ./.venv/bin/python ./eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt '请用三句话介绍你自己。' --seed 42 --do_sample 0 --use_cache 1 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --historys 0 --open_thinking 0 --stream 0 --output_file '$OutputPath'"
 ```
 
 ### 15.2 cache on/off 对照
 
-cache on：
+cache on / cache off 必须使用同一组 `$RunId`，再分别写入两个不同 JSONL：
 
 ```powershell
-wsl -d Ubuntu-24.04 -- /home/harry/projects/MiniMind/.venv/bin/python /home/harry/projects/MiniMind/eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt "请用三句话介绍你自己。" --seed 42 --do_sample 0 --use_cache 1 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --historys 0 --open_thinking 0 --stream 0 --output_file /home/harry/projects/MiniMind/experiments/inference/full-sft-fixed-cache-on-<timestamp>.jsonl
-```
-
-cache off：
-
-```powershell
-wsl -d Ubuntu-24.04 -- /home/harry/projects/MiniMind/.venv/bin/python /home/harry/projects/MiniMind/eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt "请用三句话介绍你自己。" --seed 42 --do_sample 0 --use_cache 0 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --historys 0 --open_thinking 0 --stream 0 --output_file /home/harry/projects/MiniMind/experiments/inference/full-sft-fixed-cache-off-<timestamp>.jsonl
+$RunId = Get-Date -Format 'yyyyMMdd-HHmmss'
+$OutputPathOn = "/home/harry/projects/MiniMind/experiments/inference/full-sft-fixed-cache-on-$RunId.jsonl"
+$OutputPathOff = "/home/harry/projects/MiniMind/experiments/inference/full-sft-fixed-cache-off-$RunId.jsonl"
+wsl -d Ubuntu-24.04 -- bash -lc "cd /home/harry/projects/MiniMind && ./.venv/bin/python ./eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt '请用三句话介绍你自己。' --seed 42 --do_sample 0 --use_cache 1 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --historys 0 --open_thinking 0 --stream 0 --output_file '$OutputPathOn'"
+wsl -d Ubuntu-24.04 -- bash -lc "cd /home/harry/projects/MiniMind && ./.venv/bin/python ./eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt '请用三句话介绍你自己。' --seed 42 --do_sample 0 --use_cache 0 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --historys 0 --open_thinking 0 --stream 0 --output_file '$OutputPathOff'"
 ```
 
 对比目标：
@@ -455,6 +490,13 @@ wsl -d Ubuntu-24.04 -- /home/harry/projects/MiniMind/.venv/bin/python /home/harr
 
 对于 `do_sample=0` 的 cache on/off，对比重点是 token id 序列与最终文本；速度不同不是错误。
 
+结论边界：
+
+- 在 `do_sample=0`、固定 prompt、固定模型、固定设备、固定 `max_new_tokens=128` 下，应优先比较 `generated_token_ids`、`response`、`generated_tokens` 与 `ended_with_eos`
+- 若 token id 完全一致，只能支持“该样例上 cache on/off 两条路径行为一致”
+- 若不一致，不能立刻写成模型错误或 cache bug；应先保留 JSONL、运行参数、GPU / dtype 条件，再判断是否属于 BF16 / CUDA 数值路径差异、实现问题或状态处理问题
+- cache off 更慢是预期现象，不作为异常
+
 ### 15.3 EOS 验证
 
 观察：
@@ -466,14 +508,19 @@ wsl -d Ubuntu-24.04 -- /home/harry/projects/MiniMind/.venv/bin/python /home/harr
 ### 15.4 采样验证
 
 ```powershell
-wsl -d Ubuntu-24.04 -- /home/harry/projects/MiniMind/.venv/bin/python /home/harry/projects/MiniMind/eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt "请用三句话介绍你自己。" --seed 42 --do_sample 1 --use_cache 1 --top_k 20 --top_p 0.90 --temperature 0.70 --max_new_tokens 128 --stream 0 --output_file /home/harry/projects/MiniMind/experiments/inference/full-sft-sampling-low-<timestamp>.jsonl
-wsl -d Ubuntu-24.04 -- /home/harry/projects/MiniMind/.venv/bin/python /home/harry/projects/MiniMind/eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt "请用三句话介绍你自己。" --seed 42 --do_sample 1 --use_cache 1 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --stream 0 --output_file /home/harry/projects/MiniMind/experiments/inference/full-sft-sampling-default-<timestamp>.jsonl
+$RunId = Get-Date -Format 'yyyyMMdd-HHmmss'
+$OutputPathLow = "/home/harry/projects/MiniMind/experiments/inference/full-sft-sampling-low-$RunId.jsonl"
+$OutputPathDefault = "/home/harry/projects/MiniMind/experiments/inference/full-sft-sampling-default-$RunId.jsonl"
+wsl -d Ubuntu-24.04 -- bash -lc "cd /home/harry/projects/MiniMind && ./.venv/bin/python ./eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt '请用三句话介绍你自己。' --seed 42 --do_sample 1 --use_cache 1 --top_k 20 --top_p 0.90 --temperature 0.70 --max_new_tokens 128 --stream 0 --output_file '$OutputPathLow'"
+wsl -d Ubuntu-24.04 -- bash -lc "cd /home/harry/projects/MiniMind && ./.venv/bin/python ./eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt '请用三句话介绍你自己。' --seed 42 --do_sample 1 --use_cache 1 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --stream 0 --output_file '$OutputPathDefault'"
 ```
 
 ### 15.5 history 验证
 
 ```powershell
-wsl -d Ubuntu-24.04 -- /home/harry/projects/MiniMind/.venv/bin/python /home/harry/projects/MiniMind/eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt "你好。" --prompt "请重复上一句问候并继续自我介绍。" --seed 42 --do_sample 0 --use_cache 1 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --historys 2 --stream 0 --output_file /home/harry/projects/MiniMind/experiments/inference/full-sft-history-2-<timestamp>.jsonl
+$RunId = Get-Date -Format 'yyyyMMdd-HHmmss'
+$OutputPath = "/home/harry/projects/MiniMind/experiments/inference/full-sft-history-2-$RunId.jsonl"
+wsl -d Ubuntu-24.04 -- bash -lc "cd /home/harry/projects/MiniMind && ./.venv/bin/python ./eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt '你好。' --prompt '请重复上一句问候并继续自我介绍。' --seed 42 --do_sample 0 --use_cache 1 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --historys 2 --stream 0 --output_file '$OutputPath'"
 ```
 
 ## 16. 生成 `v0.0.3` fix-report 前必须收集的真实证据
