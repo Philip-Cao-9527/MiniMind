@@ -1,6 +1,7 @@
-import time
 import argparse
+import os
 import random
+import time
 import warnings
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, TextStreamer
@@ -11,6 +12,7 @@ warnings.filterwarnings('ignore')
 
 def init_model(args):
     tokenizer = AutoTokenizer.from_pretrained(args.load_from)
+    model_path = args.load_from
     if 'model' in args.load_from:
         model = MiniMindForCausalLM(MiniMindConfig(
             hidden_size=args.hidden_size,
@@ -20,6 +22,7 @@ def init_model(args):
         ))
         moe_suffix = '_moe' if args.use_moe else ''
         ckp = f'./{args.save_dir}/{args.weight}_{args.hidden_size}{moe_suffix}.pth'
+        model_path = os.path.abspath(ckp)
         model.load_state_dict(torch.load(ckp, map_location=args.device), strict=True)
         if args.lora_weight != 'None':
             apply_lora(model)
@@ -27,7 +30,7 @@ def init_model(args):
     else:
         model = AutoModelForCausalLM.from_pretrained(args.load_from, trust_remote_code=True)
     get_model_params(model, model.config)
-    return model.half().eval().to(args.device), tokenizer
+    return model.half().eval().to(args.device), tokenizer, model_path
 
 def main():
     parser = argparse.ArgumentParser(description="MiniMind模型推理与对话")
@@ -42,9 +45,14 @@ def main():
     parser.add_argument('--max_new_tokens', default=8192, type=int, help="最大生成长度（注意：并非模型实际长文本能力）")
     parser.add_argument('--temperature', default=0.85, type=float, help="生成温度，控制随机性（0-1，越大越随机）")
     parser.add_argument('--top_p', default=0.95, type=float, help="nucleus采样阈值（0-1）")
+    parser.add_argument('--top_k', default=50, type=int, help="top-k采样阈值（0表示关闭）")
     parser.add_argument('--open_thinking', default=0, type=int, help="是否开启自适应思考（0=否，1=是）")
     parser.add_argument('--historys', default=0, type=int, help="携带历史对话轮数（需为偶数，0表示不携带历史）")
     parser.add_argument('--show_speed', default=1, type=int, help="显示decode速度（tokens/s）")
+    parser.add_argument('--prompt', action='append', help="非交互式固定prompt，可重复传入多次")
+    parser.add_argument('--seed', default=None, type=int, help="固定随机种子；不传则沿用随机种子")
+    parser.add_argument('--use_cache', default=1, type=int, choices=[0, 1], help="是否启用KV Cache（0=否，1=是）")
+    parser.add_argument('--do_sample', default=1, type=int, choices=[0, 1], help="是否启用采样（0=否，1=是）")
     parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu', type=str, help="运行设备")
     args = parser.parse_args()
     
@@ -60,14 +68,22 @@ def main():
     ]
     
     conversation = []
-    model, tokenizer = init_model(args)
-    input_mode = int(input('[0] 自动测试\n[1] 手动输入\n'))
+    model, tokenizer, model_path = init_model(args)
     streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
-    
-    prompt_iter = prompts if input_mode == 0 else iter(lambda: input('💬: '), '')
+
+    if args.prompt:
+        prompt_iter = args.prompt
+        prompt_mode = 'fixed'
+    else:
+        input_mode = int(input('[0] 自动测试\n[1] 手动输入\n'))
+        prompt_iter = prompts if input_mode == 0 else iter(lambda: input('💬: '), '')
+        prompt_mode = 'auto' if input_mode == 0 else 'manual'
+
     for prompt in prompt_iter:
-        setup_seed(random.randint(0, 31415926))
-        if input_mode == 0: print(f'💬: {prompt}')
+        current_seed = args.seed if args.seed is not None else random.randint(0, 31415926)
+        setup_seed(current_seed)
+        if prompt_mode != 'manual':
+            print(f'💬: {prompt}')
         conversation = conversation[-args.historys:] if args.historys else []
         conversation.append({"role": "user", "content": prompt})
         if 'pretrain' in args.weight:
@@ -81,14 +97,32 @@ def main():
         st = time.time()
         generated_ids = model.generate(
             inputs=inputs["input_ids"], attention_mask=inputs["attention_mask"],
-            max_new_tokens=args.max_new_tokens, do_sample=True, streamer=streamer,
+            max_new_tokens=args.max_new_tokens, do_sample=bool(args.do_sample), streamer=streamer,
             pad_token_id=tokenizer.pad_token_id, eos_token_id=tokenizer.eos_token_id,
-            top_p=args.top_p, temperature=args.temperature, repetition_penalty=1
+            top_p=args.top_p, top_k=args.top_k, temperature=args.temperature,
+            repetition_penalty=1, use_cache=bool(args.use_cache)
         )
         response = tokenizer.decode(generated_ids[0][len(inputs["input_ids"][0]):], skip_special_tokens=True)
         conversation.append({"role": "assistant", "content": response})
         gen_tokens = len(generated_ids[0]) - len(inputs["input_ids"][0])
         print(f'\n[Speed]: {gen_tokens / (time.time() - st):.2f} tokens/s\n\n') if args.show_speed else print('\n\n')
+        ended_with_eos = bool(gen_tokens > 0 and generated_ids[0][-1].item() == tokenizer.eos_token_id)
+        print(
+            '[Meta] '
+            f'model_path={model_path} '
+            f'seed={current_seed} '
+            f'use_cache={args.use_cache} '
+            f'do_sample={args.do_sample} '
+            f'temperature={args.temperature} '
+            f'top_p={args.top_p} '
+            f'top_k={args.top_k} '
+            f'max_new_tokens={args.max_new_tokens} '
+            f'historys={args.historys} '
+            f'open_thinking={args.open_thinking} '
+            f'eos_token_id={tokenizer.eos_token_id} '
+            f'generated_tokens={gen_tokens} '
+            f'ended_with_eos={int(ended_with_eos)}'
+        )
 
 if __name__ == "__main__":
     main()
