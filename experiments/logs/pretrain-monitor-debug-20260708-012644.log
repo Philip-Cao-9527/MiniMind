@@ -1,0 +1,142 @@
+=== debug_start ===
+2026-07-08T01:26:44+08:00
+harness=/mnt/d/WSL/scripts/diagnose_minimind_monitor_once.sh
+source_script=/mnt/d/WSL/scripts/monitor_minimind_pretrain_memory.sh
+debug_script=/tmp/monitor_minimind_pretrain_debug_20260708-012644.sh
+debug_csv=/home/harry/projects/MiniMind/experiments/logs/pretrain-memory-debug-20260708-012644.csv
+
+=== harness_first_lines_visible ===
+#!/usr/bin/env bash$
+set -u$
+$
+ROOT="/home/harry/projects/MiniMind"$
+SOURCE_SCRIPT="/mnt/d/WSL/scripts/monitor_minimind_pretrain_memory.sh\
+"$
+STAMP="$(date +%Y%m%d-%H%M%S)"$
+DEBUG_SCRIPT="/tmp/monitor_minimind_pretrain_debug_${STAMP}.sh"$
+DEBUG_CSV="$ROOT/experiments/logs/pretrain-memory-debug-${STAMP}.csv"$
+
+=== direct_train_pid_before ===
+441
+
+=== source_script_state ===
+-rwxrwxrwx 1 harry harry 1842  7月  8 01:09 /mnt/d/WSL/scripts/monitor_minimind_pretrain_memory.sh
+source_syntax_exit=0
+
+=== temporary_copy ===
+copy_exit=0
+-rw-r--r-- 1 harry harry 1887  7月  8 01:26 /tmp/monitor_minimind_pretrain_debug_20260708-012644.sh
+
+=== temporary_copy_syntax ===
+syntax_exit=0
+
+=== foreground_trace_begin ===
+2026-07-08T01:26:44+08:00
++ set -u
++ project_dir=/home/harry/projects/MiniMind
++ log_dir=/home/harry/projects/MiniMind/experiments/logs
++ monitor_path=/home/harry/projects/MiniMind/experiments/logs/pretrain-memory-debug-20260708-012644.csv
++ checkpoint_path=/home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pth
++ mkdir -p /home/harry/projects/MiniMind/experiments/logs
++ printf '%s\n' timestamp,pid,mem_available_kb,swap_used_kb,vmrss_kb,vmswap_kb,rssanon_kb,rssfile_kb,checkpoint_mtime_epoch
++ seen_train=0
++ true
+++ date -Is
++ timestamp=2026-07-08T01:26:44+08:00
+++ find_train_pid
+++ ps -eo pid=,comm=,args=
+++ awk '
+        $2 ~ /^python([0-9.]*)?$/ &&
+        $0 ~ /train_pretrain[.]py/ {
+            print $1
+            exit
+        }
+    '
++ pid=441
+++ awk '/MemAvailable:/ {print $2}' /proc/meminfo
++ mem_available_kb=6707872
+++ awk '/SwapTotal:/ {print $2}' /proc/meminfo
++ swap_total_kb=8388608
+++ awk '/SwapFree:/ {print $2}' /proc/meminfo
++ swap_free_kb=8388608
++ swap_used_kb=0
++ vmrss_kb=
++ vmswap_kb=
++ rssanon_kb=
++ rssfile_kb=
++ '[' -n 441 ']'
++ '[' -r /proc/441/status ']'
++ seen_train=1
+++ awk '/^VmRSS:/ {print $2}' /proc/441/status
++ vmrss_kb=4134508
+++ awk '/^VmSwap:/ {print $2}' /proc/441/status
++ vmswap_kb=0
+++ awk '/^RssAnon:/ {print $2}' /proc/441/status
++ rssanon_kb=2560740
+++ awk '/^RssFile:/ {print $2}' /proc/441/status
++ rssfile_kb=1493892
+++ stat -c %Y /home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pth
++ checkpoint_mtime_epoch=1783445050
++ printf '%s,%s,%s,%s,%s,%s,%s,%s,%s\n' 2026-07-08T01:26:44+08:00 441 6707872 0 4134508 0 2560740 1493892 1783445050
++ '[' 1 -eq 1 ']'
++ '[' -z 441 ']'
++ sleep 30
++ true
+++ date -Is
++ timestamp=2026-07-08T01:27:14+08:00
+++ find_train_pid
+++ ps -eo pid=,comm=,args=
+++ awk '
+        $2 ~ /^python([0-9.]*)?$/ &&
+        $0 ~ /train_pretrain[.]py/ {
+            print $1
+            exit
+        }
+    '
++ pid=441
+++ awk '/MemAvailable:/ {print $2}' /proc/meminfo
++ mem_available_kb=6708972
+++ awk '/SwapTotal:/ {print $2}' /proc/meminfo
++ swap_total_kb=8388608
+++ awk '/SwapFree:/ {print $2}' /proc/meminfo
++ swap_free_kb=8388608
++ swap_used_kb=0
++ vmrss_kb=
++ vmswap_kb=
++ rssanon_kb=
++ rssfile_kb=
++ '[' -n 441 ']'
++ '[' -r /proc/441/status ']'
++ seen_train=1
+++ awk '/^VmRSS:/ {print $2}' /proc/441/status
++ vmrss_kb=4138124
+++ awk '/^VmSwap:/ {print $2}' /proc/441/status
++ vmswap_kb=0
+++ awk '/^RssAnon:/ {print $2}' /proc/441/status
++ rssanon_kb=2560900
+++ awk '/^RssFile:/ {print $2}' /proc/441/status
++ rssfile_kb=1497348
+++ stat -c %Y /home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pth
++ checkpoint_mtime_epoch=1783445216
++ printf '%s,%s,%s,%s,%s,%s,%s,%s,%s\n' 2026-07-08T01:27:14+08:00 441 6708972 0 4138124 0 2560900 1497348 1783445216
++ '[' 1 -eq 1 ']'
++ '[' -z 441 ']'
++ sleep 30
+
+=== foreground_trace_end ===
+2026-07-08T01:27:29+08:00
+
+=== debug_exit ===
+exit_code=124
+124 means timeout ended a monitor that was still running after 45 seconds.
+
+=== direct_train_pid_after ===
+441
+
+=== debug_csv ===
+timestamp,pid,mem_available_kb,swap_used_kb,vmrss_kb,vmswap_kb,rssanon_kb,rssfile_kb,checkpoint_mtime_epoch
+2026-07-08T01:26:44+08:00,441,6707872,0,4134508,0,2560740,1493892,1783445050
+2026-07-08T01:27:14+08:00,441,6708972,0,4138124,0,2560900,1497348,1783445216
+
+=== debug_end ===
+2026-07-08T01:27:29+08:00

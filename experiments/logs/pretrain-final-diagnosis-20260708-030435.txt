@@ -1,0 +1,90 @@
+=== diagnosis time ===
+2026-07-08T03:04:35+08:00
+
+=== train process count / command ===
+TRAIN_PROCESS_COUNT=1
+    441     439 Ssl+    01:59:26 5321352 51776876 python      ../.venv/bin/python train_pretrain.py --epochs 1 --batch_size 2 --max_seq_len 128 --accumulation_steps 8 --num_workers 0 --log_interval 20 --save_interval 5000 --dtype bfloat16 --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --save_weight pretrain --save_dir ../out --from_weight none --from_resume 1 --use_wandb
+
+=== screen sessions ===
+There are screens on:
+	947.minimind-pretrain-monitor-v2	(2026年07月08日 01时29分16秒)	(Detached)
+	439.minimind-pretrain-resume	(2026年07月08日 01时05分08秒)	(Detached)
+2 Sockets in /run/screen/S-harry.
+
+=== monitor process ===
+947 SCREEN -dmS minimind-pretrain-monitor-v2 bash -c exec bash "$1" >> "$2" 2>&1 _ /mnt/d/WSL/scripts/monitor_minimind_pretrain_memory_v2.sh /home/harry/projects/MiniMind/experiments/logs/pretrain-monitor-screen-20260708-012916.log
+949 bash /mnt/d/WSL/scripts/monitor_minimind_pretrain_memory_v2.sh
+
+=== system memory ===
+               total        used        free      shared  buff/cache   available
+Mem:           9.7Gi       4.3Gi       747Mi        81Mi       4.9Gi       5.4Gi
+Swap:          8.0Gi       296Ki       8.0Gi
+
+=== largest RSS processes ===
+    441 5321352 52.2 python        ../.venv/bin/python train_pretrain.py --epochs 1 --batch_size 2 --max_seq_len 128 --accumulation_steps 8 --num_workers 0 --log_interval 20 --save_interval 5000 --dtype bfloat16 --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --save_weight pretrain --save_dir ../out --from_weight none --from_resume 1 --use_wandb
+    238 23584  0.2 unattended-upgr /usr/bin/python3 /usr/share/unattended-upgrades/unattended-upgrade-shutdown --wait-for-signal
+     41 16268  0.1 systemd-journal /usr/lib/systemd/systemd-journald
+    112 13188  0.1 systemd-resolve /usr/lib/systemd/systemd-resolved
+      1 13012  0.1 systemd         /sbin/init
+    342 11532  0.1 systemd         /usr/lib/systemd/systemd --user
+    179  8876  0.0 systemd-logind  /usr/lib/systemd/systemd-logind
+    114  8028  0.0 systemd-timesyn /usr/lib/systemd/systemd-timesyncd
+     90  6368  0.0 systemd-udevd   /usr/lib/systemd/systemd-udevd
+    189  6036  0.0 rsyslogd        /usr/sbin/rsyslogd -n -iNONE
+    367  5756  0.0 bash            -bash
+    172  5452  0.0 dbus-daemon     @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+
+=== training PID 441 memory fields ===
+Name:	python
+State:	R (running)
+Pid:	441
+PPid:	439
+VmHWM:	 5321352 kB
+VmRSS:	 5321352 kB
+RssAnon:	 3617408 kB
+RssFile:	 1624068 kB
+RssShmem:	   79876 kB
+VmSwap:	       0 kB
+
+=== training PID command ===
+    441     439 Rsl+    01:59:26 5321352 51776876 ../.venv/bin/python train_pretrain.py --epochs 1 --batch_size 2 --max_seq_len 128 --accumulation_steps 8 --num_workers 0 --log_interval 20 --save_interval 5000 --dtype bfloat16 --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --save_weight pretrain --save_dir ../out --from_weight none --from_resume 1 --use_wandb
+
+=== GPU snapshot ===
+2026/07/08 03:04:35.364, NVIDIA GeForce RTX 5060 Laptop GPU, 61, 3314, 8151, 57, 39.99
+
+=== GPU compute processes ===
+441, [Not Found], [N/A]
+
+=== monitor CSV latest rows ===
+-rw-r--r-- 1 harry harry 15K  7月  8 03:04 /home/harry/projects/MiniMind/experiments/logs/pretrain-memory-resume-20260708.csv
+2026-07-08T02:56:52+08:00,441,5719872,300,5246900,0,3543792,1623232,1783450598
+2026-07-08T02:57:22+08:00,441,5722728,300,5246900,0,3543792,1623232,1783450598
+2026-07-08T02:57:52+08:00,441,5722168,300,5246964,0,3543792,1623296,1783450598
+2026-07-08T02:58:22+08:00,441,5883684,300,5086068,0,3382832,1623360,1783450598
+2026-07-08T02:58:52+08:00,441,5883516,300,5086132,0,3382832,1623424,1783450598
+2026-07-08T02:59:22+08:00,441,5882416,300,5086260,0,3382832,1623552,1783450598
+2026-07-08T02:59:52+08:00,441,5851012,300,5115140,0,3411580,1623684,1783450765
+2026-07-08T03:00:22+08:00,441,5846688,300,5115140,0,3411580,1623684,1783450765
+2026-07-08T03:00:52+08:00,441,5846692,300,5115204,0,3411580,1623748,1783450765
+2026-07-08T03:01:22+08:00,441,5846864,300,5115204,0,3411580,1623748,1783450765
+2026-07-08T03:01:53+08:00,441,5847072,300,5115204,0,3411580,1623748,1783450765
+2026-07-08T03:02:23+08:00,441,5643824,300,5321096,0,3617408,1623812,1783450930
+2026-07-08T03:02:53+08:00,441,5642768,300,5321096,0,3617408,1623812,1783450930
+2026-07-08T03:03:23+08:00,441,5641548,300,5321224,0,3617408,1623940,1783450930
+2026-07-08T03:03:53+08:00,441,5640716,300,5321224,0,3617408,1623940,1783450930
+2026-07-08T03:04:23+08:00,441,5640312,300,5321288,0,3617408,1624004,1783450930
+
+=== monitor CSV summary for current training PID ===
+samples=191
+first=2026-07-08T01:29:16+08:00 | VmRSS=4056.1MiB | VmSwap=0.0MiB | system_swap=0.0MiB
+last =2026-07-08T03:04:23+08:00 | VmRSS=5196.6MiB | VmSwap=0.0MiB | system_swap=0.3MiB
+delta          VmRSS=+1140.5MiB | VmSwap=+0.0MiB | system_swap=+0.3MiB
+range VmRSS=[4056.1, 5196.6]MiB | VmSwap=[0.0, 0.0]MiB | system_swap=[0.0, 0.3]MiB
+
+=== resume checkpoint file ===
+path=/home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pth/home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pthsize_bytes=649064413/home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pthmtime=2026-07-08 03:02:10.562135467 +0800
+
+=== resume checkpoint metadata ===
+epoch: 0
+step: 430000
+wandb_id: 'gd3zf7856ek4ad8divdij'

@@ -1,0 +1,133 @@
+=== snapshot_time ===
+2026-07-08T01:20:20+08:00
+
+=== matching train_pretrain.py processes ===
+
+detected_train_pid=441
+
+=== screen -ls ===
+There is a screen on:
+	439.minimind-pretrain-resume	(2026年07月08日 01时05分08秒)	(Detached)
+1 Socket in /run/screen/S-harry.
+
+=== memory ===
+               total        used        free      shared  buff/cache   available
+Mem:           9.7Gi       3.3Gi       1.6Gi        81Mi       5.1Gi       6.4Gi
+Swap:          8.0Gi          0B       8.0Gi
+
+=== /proc/441/status selected memory fields ===
+Name:	python
+State:	R (running)
+Pid:	441
+PPid:	439
+VmHWM:	 4066084 kB
+VmRSS:	 4066084 kB
+RssAnon:	 2560720 kB
+RssFile:	 1425488 kB
+VmSwap:	       0 kB
+
+=== ps memory for training pid ===
+    441     439 Rsl+       15:12 4066084 50720360 python      ../.venv/bin/python train_pretrain.py --epochs 1 --batch_size 2 --max_seq_len 128 --accumulation_steps 8 --num_workers 0 --log_interval 20 --save_interval 5000 --dtype bfloat16 --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --save_weight pretrain --save_dir ../out --from_weight none --from_resume 1 --use_wandb
+
+=== screen scrollback tail ===
+
+=== detected latest step-like text from scrollback ===
+
+=== resume checkpoint stat ===
+path=/home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pth/home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pthsize_bytes=649064413/home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pthmtime=2026-07-08 01:18:37.099968234 +0800
+
+=== resume checkpoint metadata via mmap ===
+epoch: 0
+step: 250000
+wandb_id: 'gd3zf7856ek4ad8divdij'
+keys: ['epoch', 'model', 'optimizer', 'scaler', 'step', 'wandb_id', 'world_size']
+
+=== monitor script existence / syntax / line endings ===
+-rwxrwxrwx 1 harry harry 1842  7月  8 01:09 /mnt/d/WSL/scripts/monitor_minimind_pretrain_memory.sh
+Bourne-Again shell script, ASCII text executable
+bash_syntax_exit=0
+--- visible line endings, first 220 lines ---
+#!/usr/bin/env bash$
+set -u$
+$
+project_dir="/home/harry/projects/MiniMind"$
+log_dir="$project_dir/experiments/logs"$
+monitor_path="$log_dir/pretrain-memory-resume-20260708.csv"$
+checkpoint_path="$project_dir/checkpoints/pretrain_768_resume.pth"$
+$
+mkdir -p "$log_dir"$
+$
+find_train_pid() {$
+    ps -eo pid=,comm=,args= |$
+    awk '$
+        $2 ~ /^python([0-9.]*)?$/ &&$
+        $0 ~ /train_pretrain[.]py/ {$
+            print $1$
+            exit$
+        }$
+    '$
+}$
+$
+printf '%s\\n' \\$
+  'timestamp,pid,mem_available_kb,swap_used_kb,vmrss_kb,vmswap_kb,rss\
+anon_kb,rssfile_kb,checkpoint_mtime_epoch' \\$
+  > "$monitor_path"$
+$
+seen_train=0$
+$
+while true; do$
+    timestamp="$(date -Is)"$
+    pid="$(find_train_pid)"$
+$
+    mem_available_kb="$(awk '/MemAvailable:/ {print $2}' /proc/meminf\
+o)"$
+    swap_total_kb="$(awk '/SwapTotal:/ {print $2}' /proc/meminfo)"$
+    swap_free_kb="$(awk '/SwapFree:/ {print $2}' /proc/meminfo)"$
+    swap_used_kb=$((swap_total_kb - swap_free_kb))$
+$
+    vmrss_kb=''$
+    vmswap_kb=''$
+    rssanon_kb=''$
+    rssfile_kb=''$
+$
+    if [ -n "$pid" ] && [ -r "/proc/$pid/status" ]; then$
+        seen_train=1$
+        vmrss_kb="$(awk '/^VmRSS:/ {print $2}' "/proc/$pid/status")"$
+        vmswap_kb="$(awk '/^VmSwap:/ {print $2}' "/proc/$pid/status")\
+"$
+        rssanon_kb="$(awk '/^RssAnon:/ {print $2}' "/proc/$pid/status\
+")"$
+        rssfile_kb="$(awk '/^RssFile:/ {print $2}' "/proc/$pid/status\
+")"$
+    fi$
+$
+    checkpoint_mtime_epoch="$(stat -c '%Y' "$checkpoint_path" 2>/dev/\
+null || true)"$
+$
+    printf '%s,%s,%s,%s,%s,%s,%s,%s,%s\\n' \\$
+      "$timestamp" \\$
+      "$pid" \\$
+      "$mem_available_kb" \\$
+      "$swap_used_kb" \\$
+      "$vmrss_kb" \\$
+      "$vmswap_kb" \\$
+      "$rssanon_kb" \\$
+      "$rssfile_kb" \\$
+      "$checkpoint_mtime_epoch" \\$
+      >> "$monitor_path"$
+$
+    if [ "$seen_train" -eq 1 ] && [ -z "$pid" ]; then$
+        break$
+    fi$
+$
+    sleep 30$
+done$
+
+=== monitor csv state ===
+-rw-r--r-- 1 harry harry 175  7月  8 01:07 /home/harry/projects/MiniMind/experiments/logs/pretrain-memory-resume-20260708.csv
+csv_exists=yes
+csv_writable=yes
+csv_append_open=OK
+--- csv tail ---
+timestamp,pid,mem_available_kb,swap_used_kb,vmrss_kb,vmswap_kb,rssanon_kb,rssfile_kb,checkpoint_mtime_epoch
+2026-07-08T01:07:57+08:00,439,6957760,0,2496,0,612,1884,1783444053

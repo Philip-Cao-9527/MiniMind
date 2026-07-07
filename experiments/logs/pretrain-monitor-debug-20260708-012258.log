@@ -1,0 +1,118 @@
+=== debug_start ===
+2026-07-08T01:22:58+08:00
+source_script=/mnt/d/WSL/scripts/monitor_minimind_pretrain_memory.sh
+debug_script=/tmp/monitor_minimind_pretrain_debug_20260708-012258.sh
+debug_csv=/home/harry/projects/MiniMind/experiments/logs/pretrain-memory-debug-20260708-012258.csv
+
+=== direct train process probe ===
+    441 python          ../.venv/bin/python train_pretrain.py --epochs 1 --batch_size 2 --max_seq_len 128 --accumulation_steps 8 --num_workers 0 --log_interval 20 --save_interval 5000 --dtype bfloat16 --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --save_weight pretrain --save_dir ../out --from_weight none --from_resume 1 --use_wandb
+
+=== syntax check of temporary copy ===
+bash_syntax_exit=0
+
+=== foreground bash -x test, maximum 45 seconds ===
++ set -u
++ project_dir=/home/harry/projects/MiniMind
++ log_dir=/home/harry/projects/MiniMind/experiments/logs
++ monitor_path=/home/harry/projects/MiniMind/experiments/logs/pretrain-memory-debug-20260708-012258.csv
++ checkpoint_path=/home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pth
++ mkdir -p /home/harry/projects/MiniMind/experiments/logs
++ printf '%s\n' timestamp,pid,mem_available_kb,swap_used_kb,vmrss_kb,vmswap_kb,rssanon_kb,rssfile_kb,checkpoint_mtime_epoch
++ seen_train=0
++ true
+++ date -Is
++ timestamp=2026-07-08T01:22:58+08:00
+++ find_train_pid
+++ ps -eo pid=,comm=,args=
+++ awk '
+        $2 ~ /^python([0-9.]*)?$/ &&
+        $0 ~ /train_pretrain[.]py/ {
+            print $1
+            exit
+        }
+    '
++ pid=441
+++ awk '/MemAvailable:/ {print $2}' /proc/meminfo
++ mem_available_kb=6629004
+++ awk '/SwapTotal:/ {print $2}' /proc/meminfo
++ swap_total_kb=8388608
+++ awk '/SwapFree:/ {print $2}' /proc/meminfo
++ swap_free_kb=8388608
++ swap_used_kb=0
++ vmrss_kb=
++ vmswap_kb=
++ rssanon_kb=
++ rssfile_kb=
++ '[' -n 441 ']'
++ '[' -r /proc/441/status ']'
++ seen_train=1
+++ awk '/^VmRSS:/ {print $2}' /proc/441/status
++ vmrss_kb=4173656
+++ awk '/^VmSwap:/ {print $2}' /proc/441/status
++ vmswap_kb=0
+++ awk '/^RssAnon:/ {print $2}' /proc/441/status
++ rssanon_kb=2635772
+++ awk '/^RssFile:/ {print $2}' /proc/441/status
++ rssfile_kb=1458008
+++ stat -c %Y /home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pth
++ checkpoint_mtime_epoch=1783444885
++ printf '%s,%s,%s,%s,%s,%s,%s,%s,%s\n' 2026-07-08T01:22:58+08:00 441 6629004 0 4173656 0 2635772 1458008 1783444885
++ '[' 1 -eq 1 ']'
++ '[' -z 441 ']'
++ sleep 30
++ true
+++ date -Is
++ timestamp=2026-07-08T01:23:28+08:00
+++ find_train_pid
+++ ps -eo pid=,comm=,args=
+++ awk '
+        $2 ~ /^python([0-9.]*)?$/ &&
+        $0 ~ /train_pretrain[.]py/ {
+            print $1
+            exit
+        }
+    '
++ pid=441
+++ awk '/MemAvailable:/ {print $2}' /proc/meminfo
++ mem_available_kb=6632128
+++ awk '/SwapTotal:/ {print $2}' /proc/meminfo
++ swap_total_kb=8388608
+++ awk '/SwapFree:/ {print $2}' /proc/meminfo
++ swap_free_kb=8388608
++ swap_used_kb=0
++ vmrss_kb=
++ vmswap_kb=
++ rssanon_kb=
++ rssfile_kb=
++ '[' -n 441 ']'
++ '[' -r /proc/441/status ']'
++ seen_train=1
+++ awk '/^VmRSS:/ {print $2}' /proc/441/status
++ vmrss_kb=4179424
+++ awk '/^VmSwap:/ {print $2}' /proc/441/status
++ vmswap_kb=0
+++ awk '/^RssAnon:/ {print $2}' /proc/441/status
++ rssanon_kb=2635780
+++ awk '/^RssFile:/ {print $2}' /proc/441/status
++ rssfile_kb=1463768
+++ stat -c %Y /home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pth
++ checkpoint_mtime_epoch=1783444885
++ printf '%s,%s,%s,%s,%s,%s,%s,%s,%s\n' 2026-07-08T01:23:28+08:00 441 6632128 0 4179424 0 2635780 1463768 1783444885
++ '[' 1 -eq 1 ']'
++ '[' -z 441 ']'
++ sleep 30
+
+=== debug_exit ===
+exit_code=124
+note: exit_code=124 means the monitor was still running and timeout ended it after 45 seconds.
+
+=== train process probe after test ===
+    441 python          ../.venv/bin/python train_pretrain.py --epochs 1 --batch_size 2 --max_seq_len 128 --accumulation_steps 8 --num_workers 0 --log_interval 20 --save_interval 5000 --dtype bfloat16 --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --save_weight pretrain --save_dir ../out --from_weight none --from_resume 1 --use_wandb
+
+=== debug csv ===
+timestamp,pid,mem_available_kb,swap_used_kb,vmrss_kb,vmswap_kb,rssanon_kb,rssfile_kb,checkpoint_mtime_epoch
+2026-07-08T01:22:58+08:00,441,6629004,0,4173656,0,2635772,1458008,1783444885
+2026-07-08T01:23:28+08:00,441,6632128,0,4179424,0,2635780,1463768,1783444885
+
+=== debug_end ===
+2026-07-08T01:23:43+08:00
