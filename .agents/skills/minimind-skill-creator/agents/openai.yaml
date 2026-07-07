@@ -1,4 +1,0 @@
-interface:
-  display_name: "MiniMind Skill 生成器"
-  short_description: "把 MiniMind 高频流程沉淀成项目级 skill"
-  default_prompt: "使用 $minimind-skill-creator 为 MiniMind 项目创建一个 MiniMind 项目级 skill。"

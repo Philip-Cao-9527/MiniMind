@@ -11,12 +11,15 @@ __pycache__/
 /dataset/*.npy
 /dataset/*.npz
 
-# Training artifacts
+# Training outputs
 /out/
 /checkpoints/
 *.pt
 *.pth
 *.safetensors
+
+# Local experiment outputs: keep experiment code/data, ignore generated outputs
+/experiments/**/outputs/
 
 # Downloaded Transformers-format model directories
 /minimind-3/

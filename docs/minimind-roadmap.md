@@ -4,15 +4,15 @@
 
 ## 当前状态快照
 
-- 本地仓库：`/home/harry/projects/MiniMind`
+- 本地仓库：`..`（相对本文件的仓库根目录）
 - 个人远端：`git@github.com:Philip-Cao-9527/MiniMind.git`
 - 当前本地提交：`8093d92bf70a6e7f4052adbac568d8f1c89d35b4`
 - 当前个人远端 `origin/main`：`8093d92bf70a6e7f4052adbac568d8f1c89d35b4`
-- 上游 MiniMind 本地引用：`/home/harry/references/minimind`
+- 上游 MiniMind 本地引用：`../../../references/minimind`（相对本文件）
 - 上游 MiniMind 当前引用提交：`512eed0b6556e741d80864f054d45d271459772a`
-- Learn MiniMind 本地引用：`/home/harry/references/learn-minimind`
+- Learn MiniMind 本地引用：`../../../references/learn-minimind`（相对本文件）
 - Learn MiniMind 当前引用提交：`76fbe5c34c588a9efb924f1399db6e71aad07e81`
-- 当前已提交项目文件主要是 `README.md` 与 `.gitignore`；`AGENTS.md` 和 `.envrc` 当前为本地新增待提交文件。
+- 当前仓库可见的长期项目治理文件包括 [README.md](../README.md)、[.gitignore](../.gitignore)、[AGENTS.md](../AGENTS.md)、[.envrc](../.envrc) 和 [docs/minimind-roadmap.md](minimind-roadmap.md)。阶段性修复报告统一放在 `docs/` 下，按任务相关性读取，不作为长期固定必读文件。
 - 本地已验证环境包括 WSL2 Ubuntu、项目 `.venv`、PyTorch `2.7.1+cu128`、CUDA 可用和 RTX 5060 Laptop GPU 可见。
 - 本轮尚未验证 MiniMind 训练、推理、pytest、真实数据下载、模型权重下载或 smoke test。
 
@@ -32,15 +32,15 @@
 
 ### 需要阅读、同步、修改或手写的真实文件
 
-- `README.md`
-- `.gitignore`
-- `AGENTS.md`
-- `/home/harry/references/minimind/README.md`
-- `/home/harry/references/minimind/model/model_minimind.py`
-- `/home/harry/references/minimind/dataset/lm_dataset.py`
-- `/home/harry/references/minimind/trainer/*.py`
-- `/home/harry/references/minimind/scripts/*.py`
-- `/home/harry/references/learn-minimind/docs/L04-MiniMind项目导览.md`
+- [README.md](../README.md)
+- [.gitignore](../.gitignore)
+- [AGENTS.md](../AGENTS.md)
+- [上游 README.md](../../../references/minimind/README.md)
+- [上游 model/model_minimind.py](../../../references/minimind/model/model_minimind.py)
+- [上游 dataset/lm_dataset.py](../../../references/minimind/dataset/lm_dataset.py)
+- `../../../references/minimind/trainer/*.py`
+- `../../../references/minimind/scripts/*.py`
+- [Learn MiniMind L04 项目导览](../../../references/learn-minimind/docs/L04-MiniMind项目导览.md)
 
 ### 关键理解点
 
@@ -48,34 +48,6 @@
 - 哪些文件只是上游参考源码，尚未同步到个人仓库。
 - 个人复现仓库不是上游仓库镜像，文档必须区分“已实现”“已阅读”“计划实现”。
 
-### 可交付产物
-
-- `docs/source-map.md`：记录上游源码入口、个人仓库当前对应状态和同步策略。
-- 必要时新增 `docs/upstream-sync-notes.md`：记录上游提交、同步范围和未同步原因。
-
-### 必要但最小的验证
-
-```bash
-git status --short --branch
-git remote -v
-git -C /home/harry/references/minimind status --short --branch
-git -C /home/harry/references/minimind rev-parse HEAD
-```
-
-### 风险与未验证边界
-
-- 上游代码更新可能改变入口、参数或默认行为，必须用本轮 `git fetch` 后的提交确认。
-- 不能把上游 README 的耗时、成本、loss、效果写成本机实验结果。
-
-### 完成标准
-
-- 能明确说明个人仓库当前有哪些真实文件、计划同步哪些上游文件、哪些只作为阅读参考。
-- 文档中每个源码路径都能在对应仓库真实找到。
-
-### 应沉淀的文档、测试或实验记录
-
-- `docs/source-map.md`
-- `docs/upstream-sync-notes.md`
 
 ## 阶段 2：源码地图与调用链拆解
 
@@ -85,18 +57,18 @@ git -C /home/harry/references/minimind rev-parse HEAD
 
 ### 需要阅读、同步、修改或手写的真实文件
 
-- 上游 `model/model_minimind.py`
-- 上游 `model/model_lora.py`
-- 上游 `dataset/lm_dataset.py`
-- 上游 `trainer/train_pretrain.py`
-- 上游 `trainer/train_full_sft.py`
-- 上游 `trainer/train_lora.py`
-- 上游 `trainer/train_distillation.py`
-- 上游 `trainer/trainer_utils.py`
-- 上游 `eval_llm.py`
-- 上游 `scripts/chat_api.py`
-- 上游 `scripts/serve_openai_api.py`
-- 上游 `scripts/convert_model.py`
+- 上游 [model/model_minimind.py](../../../references/minimind/model/model_minimind.py)
+- 上游 [model/model_lora.py](../../../references/minimind/model/model_lora.py)
+- 上游 [dataset/lm_dataset.py](../../../references/minimind/dataset/lm_dataset.py)
+- 上游 [trainer/train_pretrain.py](../../../references/minimind/trainer/train_pretrain.py)
+- 上游 [trainer/train_full_sft.py](../../../references/minimind/trainer/train_full_sft.py)
+- 上游 [trainer/train_lora.py](../../../references/minimind/trainer/train_lora.py)
+- 上游 [trainer/train_distillation.py](../../../references/minimind/trainer/train_distillation.py)
+- 上游 [trainer/trainer_utils.py](../../../references/minimind/trainer/trainer_utils.py)
+- 上游 [eval_llm.py](../../../references/minimind/eval_llm.py)
+- 上游 [scripts/chat_api.py](../../../references/minimind/scripts/chat_api.py)
+- 上游 [scripts/serve_openai_api.py](../../../references/minimind/scripts/serve_openai_api.py)
+- 上游 [scripts/convert_model.py](../../../references/minimind/scripts/convert_model.py)
 
 ### 关键理解点
 
@@ -107,9 +79,9 @@ git -C /home/harry/references/minimind rev-parse HEAD
 
 ### 可交付产物
 
-- `docs/source-map.md` 中的“源码入口表”。
-- `docs/call-chain-pretrain.md`：预训练调用链。
-- `docs/call-chain-inference.md`：推理调用链。
+- 拟新增 `docs/source-map.md` 中的“源码入口表”。
+- 拟新增 `docs/call-chain-pretrain.md`：预训练调用链。
+- 拟新增 `docs/call-chain-inference.md`：推理调用链。
 
 ### 必要但最小的验证
 
@@ -128,9 +100,9 @@ git -C /home/harry/references/minimind rev-parse HEAD
 
 ### 应沉淀的文档、测试或实验记录
 
-- `docs/source-map.md`
-- `docs/call-chain-pretrain.md`
-- `docs/call-chain-inference.md`
+- 拟新增 `docs/source-map.md`
+- 拟新增 `docs/call-chain-pretrain.md`
+- 拟新增 `docs/call-chain-inference.md`
 
 ## 阶段 3：tokenizer、数据格式、标签与 mask
 
@@ -140,11 +112,11 @@ git -C /home/harry/references/minimind rev-parse HEAD
 
 ### 需要阅读、同步、修改或手写的真实文件
 
-- 上游 `model/tokenizer.json`
-- 上游 `model/tokenizer_config.json`
-- 上游 `dataset/lm_dataset.py`
+- 上游 [model/tokenizer.json](../../../references/minimind/model/tokenizer.json)
+- 上游 [model/tokenizer_config.json](../../../references/minimind/model/tokenizer_config.json)
+- 上游 [dataset/lm_dataset.py](../../../references/minimind/dataset/lm_dataset.py)
 - 本仓库拟新增 `tests/test_dataset_labels.py`
-- 本仓库拟新增 `docs/experiments/tokenizer-label-mask.md`
+- 本仓库拟新增 `docs/tokenizer-label-mask.md`
 - 本仓库拟新增极小测试数据，例如 `tests/fixtures/pretrain_tiny.jsonl`、`tests/fixtures/sft_tiny.jsonl`
 
 ### 关键理解点
@@ -182,7 +154,7 @@ direnv exec . python -m pytest tests/test_dataset_labels.py -q
 
 - `tests/test_dataset_labels.py`
 - `tests/fixtures/*.jsonl`
-- `docs/experiments/tokenizer-label-mask.md`
+- 拟新增 `docs/tokenizer-label-mask.md`
 
 ## 阶段 4：模型核心模块手写对照复现
 
@@ -192,7 +164,7 @@ direnv exec . python -m pytest tests/test_dataset_labels.py -q
 
 ### 需要阅读、同步、修改或手写的真实文件
 
-- 上游 `model/model_minimind.py`
+- 上游 [model/model_minimind.py](../../../references/minimind/model/model_minimind.py)
 - 本仓库拟新增 `model/` 下的个人实现模块，或 `tests/handwritten/` 下的对照实现。
 - 本仓库拟新增 `tests/test_rmsnorm.py`
 - 本仓库拟新增 `tests/test_rope.py`
@@ -211,7 +183,7 @@ direnv exec . python -m pytest tests/test_dataset_labels.py -q
 ### 可交付产物
 
 - 个人手写模块或对照测试。
-- `docs/model-modules.md`：逐模块说明输入、输出、shape、公式和对照结论。
+- 拟新增 `docs/model-modules.md`：逐模块说明输入、输出、shape、公式和对照结论。
 
 ### 必要但最小的验证
 
@@ -231,7 +203,7 @@ direnv exec . python -m pytest tests/test_rmsnorm.py tests/test_rope.py tests/te
 
 ### 应沉淀的文档、测试或实验记录
 
-- `docs/model-modules.md`
+- 拟新增 `docs/model-modules.md`
 - `tests/test_*.py`
 
 ## 阶段 5：单 batch 前向、loss、反向和参数更新闭环
@@ -242,11 +214,11 @@ direnv exec . python -m pytest tests/test_rmsnorm.py tests/test_rope.py tests/te
 
 ### 需要阅读、同步、修改或手写的真实文件
 
-- 上游 `model/model_minimind.py`
-- 上游 `trainer/train_pretrain.py`
-- 上游 `trainer/trainer_utils.py`
+- 上游 [model/model_minimind.py](../../../references/minimind/model/model_minimind.py)
+- 上游 [trainer/train_pretrain.py](../../../references/minimind/trainer/train_pretrain.py)
+- 上游 [trainer/trainer_utils.py](../../../references/minimind/trainer/trainer_utils.py)
 - 本仓库拟新增 `tests/test_single_batch_train.py`
-- 本仓库拟新增 `docs/experiments/single-batch-train.md`
+- 本仓库拟新增 `docs/single-batch-train.md`
 
 ### 关键理解点
 
@@ -280,7 +252,7 @@ direnv exec . python -m pytest tests/test_single_batch_train.py -q
 ### 应沉淀的文档、测试或实验记录
 
 - `tests/test_single_batch_train.py`
-- `docs/experiments/single-batch-train.md`
+- 拟新增 `docs/single-batch-train.md`
 
 ## 阶段 6：RTX 5060 Laptop 8GB smoke test
 
@@ -293,7 +265,7 @@ direnv exec . python -m pytest tests/test_single_batch_train.py -q
 - 训练入口：`trainer/train_pretrain.py`、`trainer/train_full_sft.py`
 - 推理入口：`eval_llm.py`
 - 数据：极小 JSONL fixture 或 mini 数据集
-- 输出：`docs/experiments/gpu-smoke-test.md`
+- 输出：拟新增 `docs/gpu-smoke-test.md`
 
 ### 关键理解点
 
@@ -332,7 +304,7 @@ PY
 
 ### 应沉淀的文档、测试或实验记录
 
-- `docs/experiments/gpu-smoke-test.md`
+- 拟新增 `docs/gpu-smoke-test.md`
 
 ## 阶段 7：混合精度、梯度累积、checkpoint 与恢复训练
 
@@ -342,10 +314,10 @@ PY
 
 ### 需要阅读、同步、修改或手写的真实文件
 
-- 上游 `trainer/train_pretrain.py`
-- 上游 `trainer/train_full_sft.py`
-- 上游 `trainer/trainer_utils.py`
-- 本仓库拟新增 `docs/experiments/checkpoint-resume.md`
+- 上游 [trainer/train_pretrain.py](../../../references/minimind/trainer/train_pretrain.py)
+- 上游 [trainer/train_full_sft.py](../../../references/minimind/trainer/train_full_sft.py)
+- 上游 [trainer/trainer_utils.py](../../../references/minimind/trainer/trainer_utils.py)
+- 本仓库拟新增 `docs/checkpoint-resume.md`
 - 必要时新增 `tests/test_checkpoint_resume.py`
 
 ### 关键理解点
@@ -377,7 +349,7 @@ PY
 
 ### 应沉淀的文档、测试或实验记录
 
-- `docs/experiments/checkpoint-resume.md`
+- 拟新增 `docs/checkpoint-resume.md`
 
 ## 阶段 8：推理、采样、KV Cache 与停止条件
 
@@ -387,11 +359,11 @@ PY
 
 ### 需要阅读、同步、修改或手写的真实文件
 
-- 上游 `model/model_minimind.py`
-- 上游 `eval_llm.py`
-- 上游 `scripts/chat_api.py`
-- 上游 `scripts/serve_openai_api.py`
-- 本仓库拟新增 `docs/experiments/inference-generation.md`
+- 上游 [model/model_minimind.py](../../../references/minimind/model/model_minimind.py)
+- 上游 [eval_llm.py](../../../references/minimind/eval_llm.py)
+- 上游 [scripts/chat_api.py](../../../references/minimind/scripts/chat_api.py)
+- 上游 [scripts/serve_openai_api.py](../../../references/minimind/scripts/serve_openai_api.py)
+- 本仓库拟新增 `docs/inference-generation.md`
 - 必要时新增 `tests/test_generation_cache.py`
 
 ### 关键理解点
@@ -424,7 +396,7 @@ PY
 
 ### 应沉淀的文档、测试或实验记录
 
-- `docs/experiments/inference-generation.md`
+- 拟新增 `docs/inference-generation.md`
 - `tests/test_generation_cache.py`
 
 ## 阶段 9：SFT、LoRA、蒸馏与评估
@@ -435,12 +407,12 @@ PY
 
 ### 需要阅读、同步、修改或手写的真实文件
 
-- 上游 `trainer/train_full_sft.py`
-- 上游 `trainer/train_lora.py`
-- 上游 `model/model_lora.py`
-- 上游 `trainer/train_distillation.py`
-- 上游 `eval_llm.py`
-- 上游 `scripts/eval_toolcall.py`
+- 上游 [trainer/train_full_sft.py](../../../references/minimind/trainer/train_full_sft.py)
+- 上游 [trainer/train_lora.py](../../../references/minimind/trainer/train_lora.py)
+- 上游 [model/model_lora.py](../../../references/minimind/model/model_lora.py)
+- 上游 [trainer/train_distillation.py](../../../references/minimind/trainer/train_distillation.py)
+- 上游 [eval_llm.py](../../../references/minimind/eval_llm.py)
+- 上游 [scripts/eval_toolcall.py](../../../references/minimind/scripts/eval_toolcall.py)
 
 ### 关键理解点
 
@@ -451,9 +423,9 @@ PY
 
 ### 可交付产物
 
-- `docs/experiments/sft-smoke-test.md`
-- `docs/experiments/lora-smoke-test.md`
-- `docs/experiments/distillation-reading-notes.md`
+- 拟新增 `docs/sft-smoke-test.md`
+- 拟新增 `docs/lora-smoke-test.md`
+- 拟新增 `docs/distillation-reading-notes.md`
 - 必要时新增 LoRA 与蒸馏的最小测试。
 
 ### 必要但最小的验证
@@ -473,9 +445,9 @@ PY
 
 ### 应沉淀的文档、测试或实验记录
 
-- `docs/experiments/sft-smoke-test.md`
-- `docs/experiments/lora-smoke-test.md`
-- `docs/experiments/distillation-reading-notes.md`
+- 拟新增 `docs/sft-smoke-test.md`
+- 拟新增 `docs/lora-smoke-test.md`
+- 拟新增 `docs/distillation-reading-notes.md`
 
 ## 阶段 10：面试表达与项目复盘材料
 
@@ -485,8 +457,8 @@ PY
 
 ### 需要阅读、同步、修改或手写的真实文件
 
-- 本仓库 `README.md`
-- 本仓库 `docs/` 下已经完成的源码拆解与实验记录
+- 本仓库 [README.md](../README.md)
+- 本仓库 `docs/` 下已经完成或与本轮相关的源码拆解、实验记录与阶段性报告；长期规划当前包括 [docs/minimind-roadmap.md](minimind-roadmap.md)
 - Learn MiniMind `interview/` 与 `docs/L22-L24`，仅作为追问准备素材
 - 拟新增 `docs/interview-review.md`
 - 拟新增 `docs/project-retrospective.md`
@@ -499,9 +471,9 @@ PY
 
 ### 可交付产物
 
-- `docs/project-retrospective.md`
-- `docs/interview-review.md`
-- README 中可验证的项目进展更新。
+- 拟新增 `docs/project-retrospective.md`
+- 拟新增 `docs/interview-review.md`
+- [README.md](../README.md) 中可验证的项目进展更新。
 
 ### 必要但最小的验证
 
@@ -520,13 +492,13 @@ PY
 
 ### 应沉淀的文档、测试或实验记录
 
-- `docs/project-retrospective.md`
-- `docs/interview-review.md`
+- 拟新增 `docs/project-retrospective.md`
+- 拟新增 `docs/interview-review.md`
 
 ## 近期最小执行顺序
 
-1. 提交 `AGENTS.md` 与 `.envrc`，建立项目协作和环境基线。
-2. 生成 `docs/source-map.md`，完成个人仓库与上游源码入口映射。
+1. 提交 [AGENTS.md](../AGENTS.md) 与 [.envrc](../.envrc)，建立项目协作和环境基线。
+2. 生成拟新增 `docs/source-map.md`，完成个人仓库与上游源码入口映射。
 3. 同步或最小复制 tokenizer、dataset 和模型相关源码时，逐项记录来源与改动边界。
 4. 先完成 tokenizer / label / mask 最小测试，再推进模型模块手写复现。
 5. 完成单 batch 训练闭环后，再运行 RTX 5060 Laptop GPU smoke test。

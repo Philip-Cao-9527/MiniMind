@@ -1,4 +1,0 @@
-interface:
-  display_name: "MiniMind 代码审查器"
-  short_description: "按风险优先审查 MiniMind 改动"
-  default_prompt: "使用 $minimind-code-reviewer 审查 MiniMind 当前改动，优先列出 bug、回归风险和缺失测试。"

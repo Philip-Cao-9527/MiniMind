@@ -146,8 +146,8 @@ MiniMind/
 ├── trainer/            # 训练入口、训练循环与恢复训练逻辑
 ├── scripts/            # 推理、转换与辅助脚本
 ├── tests/              # 单元测试、边界测试与 smoke test
+├── experiments/        # 可执行的小实验：代码、极小输入数据
 ├── docs/               # 源码理解、实验结果与问题复盘
-│   └── experiments/
 ├── out/                # 可推理模型权重，不提交 Git
 ├── checkpoints/        # 断点续训状态，不提交 Git
 ├── README.md

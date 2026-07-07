@@ -1,4 +1,0 @@
-interface:
-  display_name: "MiniMind 联网检索器"
-  short_description: "为 MiniMind 检索官方文档、论文和工程依据"
-  default_prompt: "使用 $minimind-web-search 为 MiniMind 当前问题检索外部依据，并区分已确认事实、工程推断和仍需验证的边界。"
