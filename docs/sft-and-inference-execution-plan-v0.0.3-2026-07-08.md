@@ -2,17 +2,22 @@
 
 ## 1. 目标、范围与明确不做的事情
 
-本计划只服务后续 `Dense 768` full SFT 与训练后推理验证的人工执行阶段。当前阶段只完成代码准备、参数方案、手动命令、监控命令、验收矩阵和证据清单沉淀。
+本计划只服务后续 `Dense 768` full SFT 与训练后推理验证的人工执行阶段。当前阶段只完成：
+
+- 锁定 full SFT 参数方案
+- 修订执行前操作手册
+- 增补 `eval_llm.py` 的最小本地验证能力
+- 新增 WSL 启动与监控脚本，供未来从 Windows PowerShell 手动调用
 
 本计划明确不做以下事情：
 
 - 不启动 `trainer/train_full_sft.py`
 - 不启动 `eval_llm.py` 的真实推理
-- 不加载模型权重，不创建新的 checkpoint、日志、SwanLab run 或 screen 会话
+- 不加载模型权重，不创建新的 checkpoint、训练日志、SwanLab run 或 screen 会话
 - 不生成 `docs/fix-report-v0.0.3-dense-768-full-sft-and-inference-validation-2026-07-08.md`
 - 不提前修改 [README.md](../README.md) 的版本号
 
-## 2. 证据来源与冲突优先级
+## 2. 证据来源、冲突优先级与当前代码状态
 
 证据优先级按以下顺序执行：
 
@@ -25,15 +30,47 @@
 7. 上游公开 README 或其他公开材料
 8. `/home/harry/references/learn-minimind`
 
-本计划同时引用以下仓库内长期规则或总览：
+本计划同时引用以下项目规则或总览：
 
 - [AGENTS.md](../AGENTS.md)
 - [README.md](../README.md)
 
-说明：
+### 2.1 当前代码状态与上游差异边界
 
-- 当前关键代码文件 `trainer/train_full_sft.py`、`trainer/trainer_utils.py`、`dataset/lm_dataset.py`、`eval_llm.py` 与 `/home/harry/references/minimind` 同名文件 `diff` 为空，因此本轮不复制上游文件。
-- 当前 worktree 中 [pretrain-sft-manual-runbook-2026-07-07.md](pretrain-sft-manual-runbook-2026-07-07.md) 处于删除态；本计划仅把它作为历史参考路径，不把它写成本轮已恢复文件。
+当前必须准确区分三个事实：
+
+- 在本轮推理验证准备前，关键训练、数据集与推理文件曾与上游参考同名文件一致。
+- 当前 `eval_llm.py` 已在上游实现基础上做了最小本地增强。
+- `train_full_sft.py`、`trainer_utils.py`、`lm_dataset.py`、模型训练主链路仍未为本轮参数方案改写。
+
+当前 `eval_llm.py` 的本地差异只服务后续人工验证，目的如下：
+
+1. `--prompt`
+   - 支持固定 prompt 的非交互验证
+2. `--seed`
+   - 固定随机种子，方便保留可复现条件
+3. `--top_k`
+   - 暴露已有的 `generate(..., top_k=...)`
+4. `--use_cache`
+   - 暴露已有的 `generate(..., use_cache=...)`
+5. `--do_sample`
+   - 暴露已有的 `generate(..., do_sample=...)`
+6. `--stream`
+   - 允许关闭控制台流式输出，便于对比 cache on/off 结果
+7. `--output_file`
+   - 把每个 prompt 的生成结果写成 JSONL，供后续比对
+8. history 参数校验
+   - 显式拒绝负数和奇数 `historys`
+9. 推理调用外层显式 `torch.inference_mode()`
+   - 不改变生成语义，只避免无谓 autograd 状态
+10. Meta 输出
+   - 输出 `model_path`、`seed`、`use_cache`、`do_sample`、`ended_with_eos`、`elapsed_seconds`、`tokens_per_second` 等证据字段
+
+上游归属说明：
+
+- 本地 `eval_llm.py` 仍然沿用上游 `MiniMindForCausalLM.generate()` 主语义
+- 没有重写推理框架
+- 没有改 `model/model_minimind.py` 中的生成算法
 
 ## 3. Dense 768 预训练前置条件
 
@@ -42,7 +79,8 @@
 - 最终预训练权重：`/home/harry/projects/MiniMind/out/pretrain_768.pth`
 - 最终 resume checkpoint：`/home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pth`
 - 预训练最终到达：`Epoch:[1/1](635119/635119)`
-- 当前无 `train_pretrain.py` 或 `train_full_sft.py` 活跃进程
+- 当前没有运行中的 `train_pretrain.py` 或 `train_full_sft.py` writer
+- 当前没有现成 full SFT 权重、checkpoint、日志或 `.tmp` 工件
 - 当前 `screen -ls` 返回 `No Sockets found`
 
 full SFT 首次启动必须使用：
@@ -55,7 +93,7 @@ full SFT 首次启动必须使用：
 - `--from_weight pretrain` 会按当前 `trainer_utils.init_model()` 的真实实现加载 `../out/pretrain_768.pth`
 - `--from_resume 0` 表示本轮 full SFT 首次启动不从已有 full SFT resume 状态恢复
 
-## 4. Full SFT 真实调用链
+## 4. Full SFT 真实调用链与固定路径
 
 当前本地代码的真实主链路如下：
 
@@ -68,7 +106,16 @@ full SFT 首次启动必须使用：
 7. `train_full_sft.py` 用 `DataLoader(..., pin_memory=True)` 组织 batch
 8. 训练循环按 micro-step 计算学习率、前向、loss、反向、梯度累积、裁剪和保存
 9. 普通权重保存到 `../out/full_sft_768.pth`
-10. resume checkpoint 保存到 `../checkpoints/full_sft_768_resume.pth`
+10. 普通 checkpoint 保存到 `../checkpoints/full_sft_768.pth`
+11. resume checkpoint 保存到 `../checkpoints/full_sft_768_resume.pth`
+
+必须明确：
+
+- `checkpoint_dir=../checkpoints` 不是 CLI 参数
+- 它是当前代码内部固定路径
+- 对应 `.tmp` 文件是：
+  - `../checkpoints/full_sft_768.pth.tmp`
+  - `../checkpoints/full_sft_768_resume.pth.tmp`
 
 ## 5. 已锁定的 full SFT 参数方案
 
@@ -128,271 +175,308 @@ full SFT 首次启动必须使用：
 
 - `batch_size=1` 时每个 epoch 的 micro-step 数：`905718`
 - `accumulation_steps=6` 时每个 epoch 的预计 optimizer update 数：`150953`
-- 2 epoch 的预计 optimizer update 数：`301906`
+- `save_interval=5000` 时每个 epoch 的预计保存次数：`182`
+- 2 epoch 的预计保存次数：`364`
+- 最大恢复损失窗口：`4999` micro-step
 
-## 7. 真实 SFT 数据、tokenizer、chat template、labels 与 `-100` 边界
+## 7. WSL 官方脚本与 writer lock 覆盖范围
 
-当前 `SFTDataset` 的真实数据契约：
+本轮新增两个脚本：
 
-- 顶层字段：`conversations`
-- 每条对话消息字段：`role`、`content`、`reasoning_content`、`tools`、`tool_calls`
+- `scripts/start_full_sft_dense768_e2.sh`
+- `scripts/monitor_full_sft_memory.sh`
 
-当前标签语义：
+### 7.1 `start_full_sft_dense768_e2.sh`
 
-- prompt 由 `apply_chat_template(...)` 生成
-- labels 初始全为 `-100`
-- 只把 assistant 片段与其结尾 `eos` 对应位置改写成真实 token id
-- user、system、模板控制 token、padding 位置不参与 loss
+用途：
 
-因此必须区分三种量：
+- 作为后续首次 full SFT 的唯一官方启动入口
 
-- 模型前向实际长度：固定 `384`
-- 样本中真实有效内容长度：有限样本平均 `356.68`
-- 实际参与监督 loss 的 assistant token：有限样本平均 `281.89`
+脚本会做的事情：
 
-## 8. 权重、checkpoint、`.tmp`、日志与 SwanLab 路径
+- 自动定位项目根目录，不依赖调用目录
+- 检查：
+  - `out/pretrain_768.pth` 存在
+  - `dataset/sft_t2t_mini.jsonl` 存在
+  - `/.venv/bin/python` 存在
+- 拒绝在以下任一路径已存在时启动：
+  - `out/full_sft_768.pth`
+  - `checkpoints/full_sft_768.pth`
+  - `checkpoints/full_sft_768_resume.pth`
+  - `checkpoints/full_sft_768.pth.tmp`
+  - `checkpoints/full_sft_768_resume.pth.tmp`
+- 拒绝在已有 `train_full_sft.py` Python writer 时启动
+- 使用时间戳 run id 生成独立：
+  - screen session
+  - 训练日志路径
+  - 推荐监控 CSV 路径
+- 生成固定 manifest：
+  - `/home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env`
 
-当前代码和后续手动命令下的真实路径如下：
+writer lock 真实覆盖范围：
 
-- full SFT 普通权重：`../out/full_sft_768.pth`
-- full SFT 普通 checkpoint：`../checkpoints/full_sft_768.pth`
-- full SFT resume checkpoint：`../checkpoints/full_sft_768_resume.pth`
-- full SFT 普通 checkpoint 临时文件：`../checkpoints/full_sft_768.pth.tmp`
-- full SFT resume 临时文件：`../checkpoints/full_sft_768_resume.pth.tmp`
-- 手动训练日志：`../experiments/logs/full-sft-dense-768-e2-$(date +%F-%H%M%S).log`
-- SwanLab project：`MiniMind-Full-SFT`
-- SwanLab run 名默认格式：`MiniMind-Full-SFT-Epoch-2-BatchSize-1-LearningRate-1e-05`
+- 该官方启动脚本会在 detached runner shell 中通过 advisory `flock -n` 持有：
+  - `checkpoints/full_sft_768.writer.lock`
+- 该锁会覆盖整个 `train_full_sft.py` + `tee` 生命周期
+- 如果 lock 已被占用，脚本会快速失败，不等待
+- 直接绕开该官方脚本、手工执行 `python train_full_sft.py ...` 的命令仍可绕过 lock
 
-注意：
+### 7.2 `monitor_full_sft_memory.sh`
 
-- `../checkpoints/full_sft_768_resume.pth` 是代码内部固定路径，不是 CLI 参数。
-- 当前没有 `flock` 或其他机制级互斥锁；单 writer 只能靠启动前和运行中的人工只读检查确认。
+用途：
 
-## 9. WSL 主机内存 / swap、GPU 显存与单 writer 风险
+- 只读监控一个已经启动的 `train_full_sft.py` Python 进程
 
-当前机器边界：
+脚本边界：
 
-- GPU：`NVIDIA GeForce RTX 5060 Laptop GPU, 8151 MiB`
-- WSL 当前资源上限：RAM `10GB`，swap `8GB`
+- 不启动训练
+- 不停止训练
+- 不修改 checkpoint、日志、模型或数据
+- 仅当精确找到一个 `train_full_sft.py` Python 进程时才开始
+- 0 个或多于 1 个候选时明确报错并退出
+- 默认采样间隔 `30` 秒
+- CSV 字段与 pretrain 监控保持可比：
+  - `timestamp`
+  - `pid`
+  - `mem_available_kb`
+  - `swap_used_kb`
+  - `vmrss_kb`
+  - `vmswap_kb`
+  - `rssanon_kb`
+  - `rssfile_kb`
+  - `checkpoint_mtime_epoch`
 
-风险说明：
+## 8. 在 Windows PowerShell 执行：启动前只读核验
 
-- `max_seq_len=384` 的实际前向长度固定为 `384`，因此显存与 host 内存压力应按固定长度理解，不能用 `356.68` 平均有效长度替代。
-- `pin_memory=True` 当前写死在训练脚本里，本轮不改；它可能增加 host 侧 pinned memory 压力。
-- 历史上 `.tmp` checkpoint 竞争事故与 host RSS / swap 高压是两类独立问题，不能混写。
-- `save_interval=5000` 只能降低保存频率，不等于根治 host 内存问题。
+后续真实执行前，先在 Windows PowerShell 运行：
 
-## 10. 用户手动启动前的只读检查
-
-后续真实启动前，先在项目根目录执行只读检查：
-
-```bash
-cd /home/harry/projects/MiniMind
-git status --short --branch
-screen -ls || true
-ps -eo pid,ppid,tty,etime,cmd | grep -E '[t]rain_(pretrain|full_sft)[.]py' || true
-stat -c '%n | size=%s bytes | mtime=%y' out/pretrain_768.pth checkpoints/pretrain_768_resume.pth
-du -h dataset/sft_t2t_mini.jsonl
-wc -l dataset/sft_t2t_mini.jsonl
-free -h
-nvidia-smi --query-gpu=name,memory.total,memory.used --format=csv,noheader
-find out checkpoints experiments/logs -maxdepth 2 -type f \( -name '*full_sft*' -o -name '*sft*' \) -printf '%p | %s bytes | %TY-%Tm-%Td %TH:%TM:%TS\n' 2>/dev/null | sort || true
+```powershell
+wsl -d Ubuntu-24.04 -- bash -lc "cd /home/harry/projects/MiniMind && git status --short --branch"
+wsl -d Ubuntu-24.04 -- screen -ls
+wsl -d Ubuntu-24.04 -- bash -lc "ps -eo pid,ppid,tty,etime,cmd | grep -E '[t]rain_(pretrain|full_sft)[.]py' || true"
+wsl -d Ubuntu-24.04 -- stat -c "%n | size=%s bytes | mtime=%y" /home/harry/projects/MiniMind/out/pretrain_768.pth /home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pth
+wsl -d Ubuntu-24.04 -- du -h /home/harry/projects/MiniMind/dataset/sft_t2t_mini.jsonl
+wsl -d Ubuntu-24.04 -- wc -l /home/harry/projects/MiniMind/dataset/sft_t2t_mini.jsonl
+wsl -d Ubuntu-24.04 -- free -h
+wsl -d Ubuntu-24.04 -- nvidia-smi --query-gpu=name,memory.total,memory.used --format=csv,noheader
+wsl -d Ubuntu-24.04 -- bash -lc "find /home/harry/projects/MiniMind/out /home/harry/projects/MiniMind/checkpoints /home/harry/projects/MiniMind/experiments/logs -maxdepth 2 -type f \( -name '*full_sft*' -o -name '*sft*' \) -printf '%p | %s bytes | %TY-%Tm-%Td %TH:%TM:%TS\n' 2>/dev/null | sort || true"
 ```
 
-只有确认没有活跃 writer、没有需要恢复的旧 full SFT 会话，且不会覆盖已有工件后，才允许手动启动。
+## 9. 在 Windows PowerShell 执行：启动 full SFT
 
-## 11. 用户手动启动 full SFT 的完整命令
+后续首次 full SFT 只通过官方启动脚本启动：
 
-以下命令只写入计划，不在当前阶段执行：
-
-```bash
-cd /home/harry/projects/MiniMind/trainer
-mkdir -p ../experiments/logs ../out ../checkpoints
-screen -dmS minimind-full-sft-dense768-e2 bash -lc '
-set -o pipefail
-cd /home/harry/projects/MiniMind/trainer || exit 1
-../.venv/bin/python -u train_full_sft.py \
-  --save_dir ../out \
-  --save_weight full_sft \
-  --epochs 2 \
-  --batch_size 1 \
-  --max_seq_len 384 \
-  --accumulation_steps 6 \
-  --num_workers 0 \
-  --log_interval 20 \
-  --save_interval 5000 \
-  --use_wandb \
-  --wandb_project MiniMind-Full-SFT \
-  --dtype bfloat16 \
-  --hidden_size 768 \
-  --num_hidden_layers 8 \
-  --use_moe 0 \
-  --from_weight pretrain \
-  --from_resume 0 \
-  2>&1 | tee ../experiments/logs/full-sft-dense-768-e2-$(date +%F-%H%M%S).log
-'
+```powershell
+wsl -d Ubuntu-24.04 -- bash /home/harry/projects/MiniMind/scripts/start_full_sft_dense768_e2.sh
 ```
 
-## 12. 训练期间人工监控命令
+该脚本内部实际调用的训练参数固定为：
 
-训练期间建议只读监控以下信号：
+- `--epochs 2`
+- `--batch_size 1`
+- `--max_seq_len 384`
+- `--accumulation_steps 6`
+- `--num_workers 0`
+- `--learning_rate 1e-5`
+- `--grad_clip 1.0`
+- `--log_interval 20`
+- `--save_interval 5000`
+- `--use_wandb`
+- `--dtype bfloat16`
+- `--hidden_size 768`
+- `--num_hidden_layers 8`
+- `--use_moe 0`
+- `--from_weight pretrain`
+- `--from_resume 0`
 
-```bash
-screen -ls
-ps -eo pid,ppid,tty,etime,%mem,rss,cmd | grep '[t]rain_full_sft.py'
-tail -n 80 /home/harry/projects/MiniMind/experiments/logs/full-sft-dense-768-e2-*.log
-free -h
-nvidia-smi --query-gpu=timestamp,name,utilization.gpu,memory.used,memory.total --format=csv
-stat -c '%n | size=%s bytes | mtime=%y' /home/harry/projects/MiniMind/out/full_sft_768.pth /home/harry/projects/MiniMind/checkpoints/full_sft_768_resume.pth 2>/dev/null
-grep -E 'VmRSS|VmSwap|RssAnon|RssFile' /proc/<训练PID>/status
+## 10. 在 Windows PowerShell 执行：核验 screen、PID、日志与 manifest
+
+启动脚本成功后，先读取 manifest：
+
+```powershell
+wsl -d Ubuntu-24.04 -- cat /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env
 ```
 
-重点观察：
+核验当前训练 screen 与唯一 Python PID：
 
-- 日志是否持续推进
-- 是否出现 `Traceback`、`RuntimeError`、`CUDA out of memory`
-- `VmSwap`、系统 swap、`MemAvailable` 是否持续恶化
-- checkpoint 的 `mtime` 是否按预期更新
-- 是否始终只有一个 full SFT writer
+```powershell
+wsl -d Ubuntu-24.04 -- screen -ls
+wsl -d Ubuntu-24.04 -- bash -lc "ps -eo pid,ppid,tty,etime,cmd | grep '[t]rain_full_sft.py'"
+```
 
-## 13. 异常时应保留的证据与禁止动作
+核验 manifest 中记录的当前 screen、日志和推荐监控 CSV 路径：
 
-出现异常时优先保留：
+```powershell
+wsl -d Ubuntu-24.04 -- bash -lc "source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && printf 'screen=%s\nlog=%s\nmonitor_csv=%s\n' \"\$SCREEN_SESSION\" \"\$LOG_PATH\" \"\$MONITOR_CSV_PATH\""
+```
 
-- 训练日志尾部
-- `screen -ls`
-- 训练进程 `ps` 输出
-- `free -h`
-- `nvidia-smi`
-- `/proc/<训练PID>/status` 中的 `VmRSS`、`VmSwap`、`RssAnon`、`RssFile`
-- `out/full_sft_768.pth` 与 `checkpoints/full_sft_768_resume.pth` 的 `stat`
+## 11. 在 Windows PowerShell 执行：启动内存监控
 
-禁止动作：
+在确认训练 screen 与唯一 Python PID 后，再手动启动监控：
 
-- 不要删除、覆盖、移动已有预训练或 full SFT 权重
-- 不要在异常现场重复启动第二个 full SFT 进程
-- 不要把 `save_interval=5000` 写成内存问题已经被彻底解决
-- 不要把人工确认到的“当前只有一个 writer”写成机制级保证
+```powershell
+wsl -d Ubuntu-24.04 -- bash -lc "source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && bash /home/harry/projects/MiniMind/scripts/monitor_full_sft_memory.sh \"\$MONITOR_CSV_PATH\""
+```
 
-## 14. SFT 结束后的验收清单
+说明：
 
-真实 full SFT 完成后，至少执行以下验收：
+- 监控脚本不会自动随训练启动
+- 是否启动监控仍由用户显式控制
 
-```bash
-screen -ls || true
-ps -eo pid,ppid,tty,etime,cmd | grep '[t]rain_full_sft.py' || true
-stat -c '%n | size=%s bytes | mtime=%y' out/full_sft_768.pth checkpoints/full_sft_768_resume.pth
-tail -n 120 experiments/logs/full-sft-dense-768-e2-*.log
-rg -n 'Traceback|RuntimeError|CUDA out of memory|OutOfMemory|KeyboardInterrupt|FileNotFoundError|Error:' experiments/logs/full-sft-dense-768-e2-*.log || true
+## 12. 在 Windows PowerShell 执行：查看日志、CSV 与 artifact mtime
+
+查看最新日志尾部：
+
+```powershell
+wsl -d Ubuntu-24.04 -- bash -lc "source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && tail -n 80 \"\$LOG_PATH\""
+```
+
+查看最新监控 CSV 一行：
+
+```powershell
+wsl -d Ubuntu-24.04 -- bash -lc "source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && tail -n 1 \"\$MONITOR_CSV_PATH\""
+```
+
+查看权重与 resume checkpoint 的 `mtime`：
+
+```powershell
+wsl -d Ubuntu-24.04 -- stat -c "%n | size=%s bytes | mtime=%y" /home/harry/projects/MiniMind/out/full_sft_768.pth /home/harry/projects/MiniMind/checkpoints/full_sft_768_resume.pth
+```
+
+监控时重点看：
+
+- 当前训练 screen 是否仍在
+- `train_full_sft.py` 是否仍是唯一 Python writer
+- CSV 中的 `VmRSS`、`VmSwap`、系统 `swap_used_kb`、`MemAvailable`
+- 权重与 resume checkpoint 的 `mtime` 是否推进
+
+## 13. 在 Windows PowerShell 执行：SFT 结束后的验收
+
+训练结束后，至少执行：
+
+```powershell
+wsl -d Ubuntu-24.04 -- screen -ls
+wsl -d Ubuntu-24.04 -- bash -lc "ps -eo pid,ppid,tty,etime,cmd | grep '[t]rain_full_sft.py' || true"
+wsl -d Ubuntu-24.04 -- bash -lc "source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && tail -n 120 \"\$LOG_PATH\""
+wsl -d Ubuntu-24.04 -- bash -lc "source /home/harry/projects/MiniMind/experiments/logs/full-sft-current-run.env && rg -n 'Traceback|RuntimeError|CUDA out of memory|OutOfMemory|KeyboardInterrupt|FileNotFoundError|Error:' \"\$LOG_PATH\" || true"
+wsl -d Ubuntu-24.04 -- stat -c "%n | size=%s bytes | mtime=%y" /home/harry/projects/MiniMind/out/full_sft_768.pth /home/harry/projects/MiniMind/checkpoints/full_sft_768_resume.pth
 ```
 
 验收目标：
 
-- 训练自然结束或按计划停止
+- 训练自然结束或按计划受控停止
 - 最终权重存在
 - 最终 resume checkpoint 存在
 - 日志中能确认 2 epoch 的最终进度
-- 未把未验证内容扩写成“能力已证明”
+- 不把未验证内容扩写成“能力已证明”
 
-## 15. Full SFT 权重存在后的固定 prompt 推理命令
+## 14. `eval_llm.py` 的未来推理验证能力边界
 
-以下命令只写入计划，不在当前阶段执行。默认使用当前已补足 CLI 的 `eval_llm.py`。
+当前 `eval_llm.py --help` 与 argparse 已确认支持：
 
-固定 prompt 基线命令：
+- `--load_from model`
+- `--prompt`
+- `--seed`
+- `--top_k`
+- `--use_cache`
+- `--do_sample`
+- `--stream`
+- `--output_file`
 
-```bash
-cd /home/harry/projects/MiniMind
-./.venv/bin/python eval_llm.py \
-  --load_from model \
-  --save_dir out \
-  --weight full_sft \
-  --hidden_size 768 \
-  --num_hidden_layers 8 \
-  --use_moe 0 \
-  --device cuda \
-  --prompt '请用三句话介绍你自己。' \
-  --seed 42 \
-  --do_sample 0 \
-  --use_cache 1 \
-  --top_k 50 \
-  --top_p 0.95 \
-  --temperature 0.85 \
-  --max_new_tokens 128 \
-  --historys 0 \
-  --open_thinking 0
+当前 `eval_llm.py` 的 JSONL 证据字段至少包含：
+
+- `timestamp`
+- `prompt_index`
+- `prompt`
+- `response`
+- `model_path`
+- `weight`
+- `device`
+- `seed`
+- `use_cache`
+- `do_sample`
+- `temperature`
+- `top_p`
+- `top_k`
+- `max_new_tokens`
+- `historys`
+- `open_thinking`
+- `input_tokens`
+- `generated_tokens`
+- `generated_token_ids`
+- `eos_token_id`
+- `ended_with_eos`
+- `elapsed_seconds`
+- `tokens_per_second`
+
+参数语义边界：
+
+- `do_sample=0` 时，`temperature`、`top_p`、`top_k` 仍会被记录，但不应写成影响贪心输出的随机因素
+- 固定 seed 对 `do_sample=0` 的输出通常不是核心决定因素，但仍应记录
+- cache off 的慢速路径是预期比较对象，不应直接认定为异常
+- 后续 cache on/off 默认使用同一 prompt、同一 `max_new_tokens=128`、同一模型、同一 device、`do_sample=0`、`stream=0`
+- 不得使用默认 `max_new_tokens=8192` 做 cache off 验证
+
+## 15. 在 Windows PowerShell 执行：固定 prompt、cache on/off、EOS、采样、history 验证
+
+未来推理输出文件必须分开保存，例如：
+
+- `/home/harry/projects/MiniMind/experiments/inference/full-sft-fixed-cache-on-<timestamp>.jsonl`
+- `/home/harry/projects/MiniMind/experiments/inference/full-sft-fixed-cache-off-<timestamp>.jsonl`
+
+### 15.1 固定 prompt 基线
+
+```powershell
+wsl -d Ubuntu-24.04 -- /home/harry/projects/MiniMind/.venv/bin/python /home/harry/projects/MiniMind/eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt "请用三句话介绍你自己。" --seed 42 --do_sample 0 --use_cache 1 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --historys 0 --open_thinking 0 --stream 0 --output_file /home/harry/projects/MiniMind/experiments/inference/full-sft-fixed-baseline-<timestamp>.jsonl
 ```
 
-预训练权重对照命令：
-
-```bash
-cd /home/harry/projects/MiniMind
-./.venv/bin/python eval_llm.py \
-  --load_from model \
-  --save_dir out \
-  --weight pretrain \
-  --hidden_size 768 \
-  --num_hidden_layers 8 \
-  --use_moe 0 \
-  --device cuda \
-  --prompt '请用三句话介绍你自己。' \
-  --seed 42 \
-  --do_sample 0 \
-  --use_cache 1 \
-  --top_k 50 \
-  --top_p 0.95 \
-  --temperature 0.85 \
-  --max_new_tokens 128
-```
-
-## 16. cache on/off、EOS、采样、history、权重来源验证矩阵
-
-cache on/off 对照：
-
-- 固定 prompt：`请用三句话介绍你自己。`
-- 固定 `seed=42`
-- 固定 `do_sample=0`
-- 固定 `max_new_tokens=128`
-- 比较最终文本是否一致
-- 记录 `generated_tokens`、`ended_with_eos` 与耗时
+### 15.2 cache on/off 对照
 
 cache on：
 
-```bash
-./.venv/bin/python eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt '请用三句话介绍你自己。' --seed 42 --do_sample 0 --use_cache 1 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128
+```powershell
+wsl -d Ubuntu-24.04 -- /home/harry/projects/MiniMind/.venv/bin/python /home/harry/projects/MiniMind/eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt "请用三句话介绍你自己。" --seed 42 --do_sample 0 --use_cache 1 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --historys 0 --open_thinking 0 --stream 0 --output_file /home/harry/projects/MiniMind/experiments/inference/full-sft-fixed-cache-on-<timestamp>.jsonl
 ```
 
 cache off：
 
-```bash
-./.venv/bin/python eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt '请用三句话介绍你自己。' --seed 42 --do_sample 0 --use_cache 0 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128
+```powershell
+wsl -d Ubuntu-24.04 -- /home/harry/projects/MiniMind/.venv/bin/python /home/harry/projects/MiniMind/eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt "请用三句话介绍你自己。" --seed 42 --do_sample 0 --use_cache 0 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --historys 0 --open_thinking 0 --stream 0 --output_file /home/harry/projects/MiniMind/experiments/inference/full-sft-fixed-cache-off-<timestamp>.jsonl
 ```
 
-EOS 验证：
+对比目标：
 
-- 观察 `ended_with_eos`
-- 观察 `generated_tokens`
-- 结合输出文本确认是否自然结束
+- `response`
+- `generated_token_ids`
+- `generated_tokens`
+- `ended_with_eos`
+- `elapsed_seconds`
+- `tokens_per_second`
 
-采样验证：
+对于 `do_sample=0` 的 cache on/off，对比重点是 token id 序列与最终文本；速度不同不是错误。
 
-```bash
-./.venv/bin/python eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt '请用三句话介绍你自己。' --seed 42 --do_sample 1 --use_cache 1 --top_k 20 --top_p 0.90 --temperature 0.70 --max_new_tokens 128
-./.venv/bin/python eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt '请用三句话介绍你自己。' --seed 42 --do_sample 1 --use_cache 1 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128
+### 15.3 EOS 验证
+
+观察：
+
+- `ended_with_eos`
+- `generated_tokens`
+- 输出文本是否自然结束
+
+### 15.4 采样验证
+
+```powershell
+wsl -d Ubuntu-24.04 -- /home/harry/projects/MiniMind/.venv/bin/python /home/harry/projects/MiniMind/eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt "请用三句话介绍你自己。" --seed 42 --do_sample 1 --use_cache 1 --top_k 20 --top_p 0.90 --temperature 0.70 --max_new_tokens 128 --stream 0 --output_file /home/harry/projects/MiniMind/experiments/inference/full-sft-sampling-low-<timestamp>.jsonl
+wsl -d Ubuntu-24.04 -- /home/harry/projects/MiniMind/.venv/bin/python /home/harry/projects/MiniMind/eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt "请用三句话介绍你自己。" --seed 42 --do_sample 1 --use_cache 1 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --stream 0 --output_file /home/harry/projects/MiniMind/experiments/inference/full-sft-sampling-default-<timestamp>.jsonl
 ```
 
-history 验证：
+### 15.5 history 验证
 
-```bash
-./.venv/bin/python eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt '你好。' --prompt '请重复上一句问候并继续自我介绍。' --seed 42 --do_sample 0 --use_cache 1 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --historys 2
+```powershell
+wsl -d Ubuntu-24.04 -- /home/harry/projects/MiniMind/.venv/bin/python /home/harry/projects/MiniMind/eval_llm.py --load_from model --save_dir out --weight full_sft --hidden_size 768 --num_hidden_layers 8 --use_moe 0 --device cuda --prompt "你好。" --prompt "请重复上一句问候并继续自我介绍。" --seed 42 --do_sample 0 --use_cache 1 --top_k 50 --top_p 0.95 --temperature 0.85 --max_new_tokens 128 --historys 2 --stream 0 --output_file /home/harry/projects/MiniMind/experiments/inference/full-sft-history-2-<timestamp>.jsonl
 ```
 
-权重来源验证：
-
-- `weight=pretrain` 与 `weight=full_sft` 分别执行同一固定 prompt
-- 记录 `eval_llm.py` 输出的 `model_path`
-- 不把一次随机输出写成能力证明
-
-## 17. 生成 `v0.0.3` fix-report 前必须收集的真实证据
+## 16. 生成 `v0.0.3` fix-report 前必须收集的真实证据
 
 未来允许生成 `docs/fix-report-v0.0.3-dense-768-full-sft-and-inference-validation-2026-07-08.md` 的前提是以下证据齐全：
 
@@ -408,11 +492,11 @@ history 验证：
 - history 验证结果
 - 仍未验证边界
 
-## 18. 未验证边界
+## 17. 未验证边界
 
 - 当前没有真实 full SFT 显存峰值证据
 - 当前没有真实 full SFT host RSS / swap 曲线证据
 - 当前没有真实 2 epoch 耗时证据
 - 当前没有真实 full SFT 训练质量与推理质量证据
 - 当前没有真实 cache on/off、一致性、EOS、采样、history 验证结果
-- 当前没有机制级 single-writer 锁
+- 当前只有通过官方启动脚本的 advisory writer lock；绕开脚本仍可绕过

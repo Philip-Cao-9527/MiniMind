@@ -1,8 +1,12 @@
 import argparse
+import json
 import os
 import random
 import time
 import warnings
+from datetime import datetime
+from pathlib import Path
+
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, TextStreamer
 from model.model_minimind import MiniMindConfig, MiniMindForCausalLM
@@ -12,7 +16,7 @@ warnings.filterwarnings('ignore')
 
 def init_model(args):
     tokenizer = AutoTokenizer.from_pretrained(args.load_from)
-    model_path = args.load_from
+    model_path = os.path.abspath(args.load_from) if os.path.exists(args.load_from) else args.load_from
     if 'model' in args.load_from:
         model = MiniMindForCausalLM(MiniMindConfig(
             hidden_size=args.hidden_size,
@@ -31,6 +35,23 @@ def init_model(args):
         model = AutoModelForCausalLM.from_pretrained(args.load_from, trust_remote_code=True)
     get_model_params(model, model.config)
     return model.half().eval().to(args.device), tokenizer, model_path
+
+
+def validate_args(parser, args):
+    if args.historys < 0:
+        parser.error("historys 必须是非负偶数，因为历史消息需要按 user / assistant 成对保留。")
+    if args.historys % 2 != 0:
+        parser.error("historys 必须是非负偶数，因为历史消息需要按 user / assistant 成对保留。")
+
+
+def prepare_output_file(output_file):
+    if not output_file:
+        return None
+    output_path = Path(output_file)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if output_path.exists():
+        raise FileExistsError(f'输出文件已存在，拒绝覆盖: {output_path}')
+    return output_path.open('w', encoding='utf-8')
 
 def main():
     parser = argparse.ArgumentParser(description="MiniMind模型推理与对话")
@@ -53,8 +74,15 @@ def main():
     parser.add_argument('--seed', default=None, type=int, help="固定随机种子；不传则沿用随机种子")
     parser.add_argument('--use_cache', default=1, type=int, choices=[0, 1], help="是否启用KV Cache（0=否，1=是）")
     parser.add_argument('--do_sample', default=1, type=int, choices=[0, 1], help="是否启用采样（0=否，1=是）")
+    parser.add_argument('--stream', default=1, type=int, choices=[0, 1], help="是否启用控制台流式输出（0=否，1=是）")
+    parser.add_argument('--output_file', default=None, type=str, help="结构化JSONL输出路径；若存在则拒绝覆盖")
     parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu', type=str, help="运行设备")
     args = parser.parse_args()
+    validate_args(parser, args)
+    try:
+        output_fp = prepare_output_file(args.output_file)
+    except FileExistsError as exc:
+        parser.error(str(exc))
     
     prompts = [
         '你有什么特长？',
@@ -69,60 +97,102 @@ def main():
     
     conversation = []
     model, tokenizer, model_path = init_model(args)
-    streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+    streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True) if args.stream == 1 else None
 
-    if args.prompt:
-        prompt_iter = args.prompt
-        prompt_mode = 'fixed'
-    else:
-        input_mode = int(input('[0] 自动测试\n[1] 手动输入\n'))
-        prompt_iter = prompts if input_mode == 0 else iter(lambda: input('💬: '), '')
-        prompt_mode = 'auto' if input_mode == 0 else 'manual'
-
-    for prompt in prompt_iter:
-        current_seed = args.seed if args.seed is not None else random.randint(0, 31415926)
-        setup_seed(current_seed)
-        if prompt_mode != 'manual':
-            print(f'💬: {prompt}')
-        conversation = conversation[-args.historys:] if args.historys else []
-        conversation.append({"role": "user", "content": prompt})
-        if 'pretrain' in args.weight:
-            inputs = tokenizer.bos_token + prompt
+    try:
+        if args.prompt:
+            prompt_iter = args.prompt
+            prompt_mode = 'fixed'
         else:
-            inputs = tokenizer.apply_chat_template(conversation, tokenize=False, add_generation_prompt=True, open_thinking=bool(args.open_thinking))
-        
-        inputs = tokenizer(inputs, return_tensors="pt", truncation=True).to(args.device)
+            input_mode = int(input('[0] 自动测试\n[1] 手动输入\n'))
+            prompt_iter = prompts if input_mode == 0 else iter(lambda: input('💬: '), '')
+            prompt_mode = 'auto' if input_mode == 0 else 'manual'
 
-        print('🧠: ', end='')
-        st = time.time()
-        generated_ids = model.generate(
-            inputs=inputs["input_ids"], attention_mask=inputs["attention_mask"],
-            max_new_tokens=args.max_new_tokens, do_sample=bool(args.do_sample), streamer=streamer,
-            pad_token_id=tokenizer.pad_token_id, eos_token_id=tokenizer.eos_token_id,
-            top_p=args.top_p, top_k=args.top_k, temperature=args.temperature,
-            repetition_penalty=1, use_cache=bool(args.use_cache)
-        )
-        response = tokenizer.decode(generated_ids[0][len(inputs["input_ids"][0]):], skip_special_tokens=True)
-        conversation.append({"role": "assistant", "content": response})
-        gen_tokens = len(generated_ids[0]) - len(inputs["input_ids"][0])
-        print(f'\n[Speed]: {gen_tokens / (time.time() - st):.2f} tokens/s\n\n') if args.show_speed else print('\n\n')
-        ended_with_eos = bool(gen_tokens > 0 and generated_ids[0][-1].item() == tokenizer.eos_token_id)
-        print(
-            '[Meta] '
-            f'model_path={model_path} '
-            f'seed={current_seed} '
-            f'use_cache={args.use_cache} '
-            f'do_sample={args.do_sample} '
-            f'temperature={args.temperature} '
-            f'top_p={args.top_p} '
-            f'top_k={args.top_k} '
-            f'max_new_tokens={args.max_new_tokens} '
-            f'historys={args.historys} '
-            f'open_thinking={args.open_thinking} '
-            f'eos_token_id={tokenizer.eos_token_id} '
-            f'generated_tokens={gen_tokens} '
-            f'ended_with_eos={int(ended_with_eos)}'
-        )
+        for prompt_index, prompt in enumerate(prompt_iter):
+            current_seed = args.seed if args.seed is not None else random.randint(0, 31415926)
+            setup_seed(current_seed)
+            if prompt_mode != 'manual':
+                print(f'💬: {prompt}')
+            conversation = conversation[-args.historys:] if args.historys else []
+            conversation.append({"role": "user", "content": prompt})
+            if 'pretrain' in args.weight:
+                inputs_text = tokenizer.bos_token + prompt
+            else:
+                inputs_text = tokenizer.apply_chat_template(conversation, tokenize=False, add_generation_prompt=True, open_thinking=bool(args.open_thinking))
+
+            inputs = tokenizer(inputs_text, return_tensors="pt", truncation=True).to(args.device)
+            input_tokens = len(inputs["input_ids"][0])
+            generated_token_ids = []
+
+            print('🧠: ', end='')
+            st = time.time()
+            with torch.inference_mode():
+                generated_ids = model.generate(
+                    inputs=inputs["input_ids"], attention_mask=inputs["attention_mask"],
+                    max_new_tokens=args.max_new_tokens, do_sample=bool(args.do_sample), streamer=streamer,
+                    pad_token_id=tokenizer.pad_token_id, eos_token_id=tokenizer.eos_token_id,
+                    top_p=args.top_p, top_k=args.top_k, temperature=args.temperature,
+                    repetition_penalty=1, use_cache=bool(args.use_cache)
+                )
+            generated_token_ids = generated_ids[0][input_tokens:].tolist()
+            response = tokenizer.decode(generated_token_ids, skip_special_tokens=True)
+            conversation.append({"role": "assistant", "content": response})
+            elapsed_seconds = time.time() - st
+            gen_tokens = len(generated_token_ids)
+            tokens_per_second = (gen_tokens / elapsed_seconds) if elapsed_seconds > 0 else 0.0
+            if args.stream == 0:
+                print(response)
+            print(f'\n[Speed]: {tokens_per_second:.2f} tokens/s\n\n') if args.show_speed else print('\n\n')
+            ended_with_eos = bool(gen_tokens > 0 and generated_token_ids[-1] == tokenizer.eos_token_id)
+            print(
+                '[Meta] '
+                f'model_path={model_path} '
+                f'seed={current_seed} '
+                f'use_cache={args.use_cache} '
+                f'do_sample={args.do_sample} '
+                f'temperature={args.temperature} '
+                f'top_p={args.top_p} '
+                f'top_k={args.top_k} '
+                f'max_new_tokens={args.max_new_tokens} '
+                f'historys={args.historys} '
+                f'open_thinking={args.open_thinking} '
+                f'eos_token_id={tokenizer.eos_token_id} '
+                f'generated_tokens={gen_tokens} '
+                f'ended_with_eos={int(ended_with_eos)} '
+                f'elapsed_seconds={elapsed_seconds:.6f} '
+                f'tokens_per_second={tokens_per_second:.6f}'
+            )
+
+            if output_fp is not None:
+                record = {
+                    "timestamp": datetime.now().astimezone().isoformat(),
+                    "prompt_index": prompt_index,
+                    "prompt": prompt,
+                    "response": response,
+                    "model_path": model_path,
+                    "weight": args.weight,
+                    "device": args.device,
+                    "seed": current_seed,
+                    "use_cache": int(args.use_cache),
+                    "do_sample": int(args.do_sample),
+                    "temperature": args.temperature,
+                    "top_p": args.top_p,
+                    "top_k": args.top_k,
+                    "max_new_tokens": args.max_new_tokens,
+                    "historys": args.historys,
+                    "open_thinking": args.open_thinking,
+                    "input_tokens": input_tokens,
+                    "generated_tokens": gen_tokens,
+                    "generated_token_ids": generated_token_ids,
+                    "eos_token_id": tokenizer.eos_token_id,
+                    "ended_with_eos": ended_with_eos,
+                    "elapsed_seconds": elapsed_seconds,
+                    "tokens_per_second": tokens_per_second
+                }
+                output_fp.write(json.dumps(record, ensure_ascii=False) + '\n')
+    finally:
+        if output_fp is not None:
+            output_fp.close()
 
 if __name__ == "__main__":
     main()
