@@ -503,3 +503,4 @@ PY
 4. 先完成 tokenizer / label / mask 最小测试，再推进模型模块手写复现。
 5. 完成单 batch 训练闭环后，再运行 RTX 5060 Laptop GPU smoke test。
 6. 基础闭环稳定后，再推进 SFT、LoRA、蒸馏、评估和面试材料。
+7. 今晚手动长跑前的具体命令、参数拍板和权重衔接说明，见 `docs/pretrain-sft-manual-runbook-2026-07-07.md`。
