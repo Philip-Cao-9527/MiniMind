@@ -13,7 +13,7 @@ import torch.distributed as dist
 from contextlib import nullcontext
 from torch import optim, nn
 from torch.nn.parallel import DistributedDataParallel
-from torch.utils.data import DataLoader, DistributedSampler
+from torch.utils.data import DataLoader, DistributedSampler, Subset
 from model.model_minimind import MiniMindConfig
 from dataset.lm_dataset import SFTDataset
 from trainer.trainer_utils import get_lr, Logger, is_main_process, lm_checkpoint, init_distributed_mode, setup_seed, init_model, SkipBatchSampler
@@ -89,6 +89,67 @@ def apply_optimizer_update(epoch, step, valid_label_tokens, lr):
     scaler.step(optimizer)
     scaler.update()
     optimizer.zero_grad(set_to_none=True)
+
+
+def validate_subset_args():
+    if args.max_train_samples < 0:
+        raise ValueError("--max_train_samples 不能小于 0")
+    if not 0 < args.train_sample_ratio <= 1.0:
+        raise ValueError("--train_sample_ratio 必须满足 0 < train_sample_ratio <= 1.0")
+    if args.from_resume == 1 and (
+        args.max_train_samples > 0 or args.train_sample_ratio < 1.0
+    ):
+        raise ValueError(
+            "subset run 只支持 --from_resume 0：subset 数据顺序属于本次短跑实验配置，不能和历史 resume checkpoint 混用。"
+        )
+
+
+def maybe_build_subset(train_ds):
+    original_samples = len(train_ds)
+    if original_samples == 0:
+        raise ValueError(f"SFT 数据集为空，无法训练：{args.data_path}")
+
+    subset_config_enabled = args.max_train_samples > 0 or args.train_sample_ratio < 1.0
+    subset_samples = original_samples
+
+    if subset_config_enabled:
+        candidate_sizes = []
+        if args.train_sample_ratio < 1.0:
+            candidate_sizes.append(int(original_samples * args.train_sample_ratio))
+        if args.max_train_samples > 0:
+            candidate_sizes.append(args.max_train_samples)
+
+        subset_samples = min(candidate_sizes) if candidate_sizes else original_samples
+        subset_samples = max(1, min(original_samples, subset_samples))
+
+        if subset_samples < original_samples:
+            if args.train_subset_mode == 'random':
+                subset_generator = torch.Generator().manual_seed(args.train_subset_seed)
+                subset_indices = torch.randperm(
+                    original_samples, generator=subset_generator
+                )[:subset_samples].tolist()
+            else:
+                subset_indices = list(range(subset_samples))
+            train_ds = Subset(train_ds, subset_indices)
+
+    effective_ratio = subset_samples / original_samples
+    Logger(
+        "SFT subset config: "
+        f"original_train_samples={original_samples}, "
+        f"subset_train_samples={subset_samples}, "
+        f"train_sample_ratio={args.train_sample_ratio}, "
+        f"effective_subset_ratio={effective_ratio:.6f}, "
+        f"max_train_samples={args.max_train_samples}, "
+        f"train_subset_seed={args.train_subset_seed}, "
+        f"train_subset_mode={args.train_subset_mode}, "
+        f"subset_config_enabled={int(subset_config_enabled)}, "
+        f"subset_applied={int(subset_samples < original_samples)}, "
+        f"from_weight={args.from_weight}, "
+        f"from_weight_is_pretrain={int(args.from_weight == 'pretrain')}, "
+        f"from_resume={args.from_resume}, "
+        f"from_resume_is_zero={int(args.from_resume == 0)}"
+    )
+    return train_ds
 
 
 def train_epoch(epoch, loader, iters, start_step=0, wandb=None):
@@ -229,10 +290,15 @@ if __name__ == "__main__":
     parser.add_argument("--data_path", type=str, default="../dataset/sft_t2t_mini.jsonl", help="训练数据路径")
     parser.add_argument('--from_weight', default='pretrain', type=str, help="基于哪个权重训练，为none则不基于任何权重训练")
     parser.add_argument('--from_resume', default=0, type=int, choices=[0, 1], help="是否自动检测&续训（0=否，1=是）")
+    parser.add_argument("--max_train_samples", type=int, default=0, help="训练样本上限（0=不限制）")
+    parser.add_argument("--train_sample_ratio", type=float, default=1.0, help="训练样本比例（1.0=全量）")
+    parser.add_argument("--train_subset_seed", type=int, default=42, help="subset 抽样随机种子")
+    parser.add_argument("--train_subset_mode", type=str, default="random", choices=["random", "head"], help="subset 取样模式（random=确定性随机抽样，head=截取前 N 条）")
     parser.add_argument("--use_wandb", action="store_true", help="是否使用wandb")
     parser.add_argument("--wandb_project", type=str, default="MiniMind-Full-SFT", help="wandb项目名")
     parser.add_argument("--use_compile", default=0, type=int, choices=[0, 1], help="是否使用torch.compile加速（0=否，1=是）")
     args = parser.parse_args()
+    validate_subset_args()
 
     # ========== 1. 初始化环境和随机种子 ==========
     local_rank = init_distributed_mode()
@@ -261,6 +327,7 @@ if __name__ == "__main__":
     # ========== 5. 定义模型、数据、优化器 ==========
     model, tokenizer = init_model(lm_config, args.from_weight, device=args.device)
     train_ds = SFTDataset(args.data_path, tokenizer, max_length=args.max_seq_len)
+    train_ds = maybe_build_subset(train_ds)
     train_sampler = DistributedSampler(train_ds) if dist.is_initialized() else None
     scaler = torch.cuda.amp.GradScaler(enabled=(args.dtype == 'float16'))
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
