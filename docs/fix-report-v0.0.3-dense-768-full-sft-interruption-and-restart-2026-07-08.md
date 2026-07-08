@@ -31,7 +31,7 @@
   - 无监督 batch 直接跳过；
   - 非有限 loss / grad norm 立即失败；
   - checkpoint 仅在无未落地累积梯度的边界写入。
-- [scripts/diagnose_sft_supervision.py](../scripts/diagnose_sft_supervision.py)
+- [tests/diagnose_sft_supervision.py](../tests/diagnose_sft_supervision.py)
   - 新增只读诊断脚本，复现真实样本顺序并比较旧行为 / 修复后行为。
 - [scripts/start_full_sft_dense768_e2.sh](../scripts/start_full_sft_dense768_e2.sh)
   - 明确 `save_interval=5000` 只是保存请求阈值，不是严格 checkpoint micro-step。

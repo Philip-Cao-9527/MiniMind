@@ -6,7 +6,7 @@
 
 - 数据语义：[lm_dataset.py](../dataset/lm_dataset.py#L58)
 - 训练循环：[train_full_sft.py](../trainer/train_full_sft.py#L24)
-- 只读诊断脚本：[diagnose_sft_supervision.py](../scripts/diagnose_sft_supervision.py#L19)
+- 只读诊断脚本：[diagnose_sft_supervision.py](../tests/diagnose_sft_supervision.py#L1)
 - 中断日志：[full-sft-dense-768-e2-20260708-070010.log](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L67)
 - partial 工件归档目录：`../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/`
 
@@ -22,7 +22,7 @@
 
 - 位置：
   - [lm_dataset.py](../dataset/lm_dataset.py#L88)
-  - [diagnose_sft_supervision.py](../scripts/diagnose_sft_supervision.py#L79)
+  - [diagnose_sft_supervision.py](../tests/diagnose_sft_supervision.py#L122)
   - [full-sft-dense-768-e2-20260708-070010.log](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L67)
 - 证据：
   - 本轮只读诊断按 `setup_seed(42)`、`torch.randperm(len(train_ds))`、`max_seq_len=384`、前 `10000` 个 micro-step 复现样本顺序。
@@ -35,7 +35,8 @@
   - 保持当前修复后的语义：先在完整 token 序列上生成完整 `labels`，再对 `input_ids` 与 `labels` 同步裁剪，并在超长时优先保留最后 `max_seq_len` 的尾部窗口。
   - 不改 chat template，不改 assistant label 定义，不把 user/system/pad token 误计入 loss。
 - 最小验证：
-  - 运行 `./.venv/bin/python scripts/diagnose_sft_supervision.py --max_seq_len 384 --steps 10000 --seed 42 --focus_steps 980 1060 1880 2960 4800 7580 8220 8840`
+  - 运行 `./.venv/bin/python tests/diagnose_sft_supervision.py --max_seq_len 384 --steps 10000 --seed 42 --focus_steps 980 1060 1880 2960 4800 7580 8220 8840`
+  - 输出会默认同时保存到 `tests/out/`
   - 期望结果：`zero_supervision_steps_original=136`，`zero_supervision_steps_repaired=0`。
 
 ### 严重 2：旧版训练循环允许 zero-supervision batch 进入 forward/loss，NaN 会直接污染训练过程
@@ -43,7 +44,7 @@
 - 位置：
   - [train_full_sft.py](../trainer/train_full_sft.py#L94)
   - [model_minimind.py](../model/model_minimind.py#L249)
-  - [diagnose_sft_supervision.py](../scripts/diagnose_sft_supervision.py#L182)
+  - [diagnose_sft_supervision.py](../tests/diagnose_sft_supervision.py#L233)
 - 证据：
   - 当前模型 loss 仍使用 `F.cross_entropy(..., ignore_index=-100)`，[model_minimind.py](../model/model_minimind.py#L266) 没有额外保护。
   - CPU toy 验证中，全部 `labels=-100` 时 `loss=nan` 且 `isfinite=False`；混合有效标签时 `loss` 为有限值。
@@ -105,9 +106,9 @@
 
 ## 最小验证记录
 
-- `./.venv/bin/python scripts/diagnose_sft_supervision.py --max_seq_len 384 --steps 10000 --seed 42 --focus_steps 980 1060 1880 2960 4800 7580 8220 8840`
+- `./.venv/bin/python tests/diagnose_sft_supervision.py --max_seq_len 384 --steps 10000 --seed 42 --focus_steps 980 1060 1880 2960 4800 7580 8220 8840`
 - `./.venv/bin/python - <<'PY' ... SFTDataset ... zero_supervision_steps_after_fix ... PY`
-- `./.venv/bin/python -m py_compile trainer/train_full_sft.py dataset/lm_dataset.py eval_llm.py scripts/diagnose_sft_supervision.py`
+- `./.venv/bin/python -m py_compile trainer/train_full_sft.py dataset/lm_dataset.py eval_llm.py tests/diagnose_sft_supervision.py`
 - `./.venv/bin/python trainer/train_full_sft.py --help`
 - `./.venv/bin/python eval_llm.py --help`
 - `bash -n scripts/start_full_sft_dense768_e2.sh`
