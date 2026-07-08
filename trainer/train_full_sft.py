@@ -21,9 +21,84 @@ from trainer.trainer_utils import get_lr, Logger, is_main_process, lm_checkpoint
 warnings.filterwarnings('ignore')
 
 
+def build_failure_context(epoch, step, valid_label_tokens, lr, extra=None):
+    parts = [
+        f"epoch={epoch + 1}/{args.epochs}",
+        f"step={step}",
+        f"valid_label_tokens={valid_label_tokens}",
+        f"lr={lr:.8f}",
+        f"dtype={args.dtype}",
+        f"max_seq_len={args.max_seq_len}",
+        f"accumulation_steps={args.accumulation_steps}",
+    ]
+    if extra:
+        parts.append(extra)
+    return ", ".join(parts)
+
+
+def ensure_finite_tensor(name, tensor, epoch, step, valid_label_tokens, lr):
+    if tensor is None:
+        return
+    if not torch.isfinite(tensor).all():
+        optimizer.zero_grad(set_to_none=True)
+        raise FloatingPointError(
+            f"non_finite_{name}: {build_failure_context(epoch, step, valid_label_tokens, lr)}"
+        )
+
+
+def save_training_state(epoch, step, wandb=None, reason='periodic', requested_step=None):
+    if not is_main_process():
+        return
+
+    model.eval()
+    moe_suffix = '_moe' if lm_config.use_moe else ''
+    ckp = f'{args.save_dir}/{args.save_weight}_{lm_config.hidden_size}{moe_suffix}.pth'
+    raw_model = model.module if isinstance(model, DistributedDataParallel) else model
+    raw_model = getattr(raw_model, '_orig_mod', raw_model)
+    state_dict = raw_model.state_dict()
+    torch.save({k: v.half().cpu() for k, v in state_dict.items()}, ckp)
+    lm_checkpoint(
+        lm_config,
+        weight=args.save_weight,
+        model=model,
+        optimizer=optimizer,
+        epoch=epoch,
+        step=step,
+        wandb=wandb,
+        save_dir='../checkpoints',
+        scaler=scaler,
+    )
+    Logger(
+        f'Checkpoint saved at micro-step {step} '
+        f'(reason={reason}, requested_step={requested_step or step})'
+    )
+    model.train()
+    del state_dict
+
+
+def apply_optimizer_update(epoch, step, valid_label_tokens, lr):
+    scaler.unscale_(optimizer)
+    grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
+    grad_norm_tensor = grad_norm if torch.is_tensor(grad_norm) else torch.tensor(grad_norm)
+    if not torch.isfinite(grad_norm_tensor).all():
+        optimizer.zero_grad(set_to_none=True)
+        raise FloatingPointError(
+            f"non_finite_grad_norm: {build_failure_context(epoch, step, valid_label_tokens, lr, extra=f'grad_norm={grad_norm_tensor.item()}')}"
+        )
+
+    scaler.step(optimizer)
+    scaler.update()
+    optimizer.zero_grad(set_to_none=True)
+
+
 def train_epoch(epoch, loader, iters, start_step=0, wandb=None):
     start_time = time.time()
     last_step = start_step
+    last_valid_label_tokens = 0
+    effective_backward_count = 0
+    pending_save_step = None
+    optimizer.zero_grad(set_to_none=True)
+
     for step, (input_ids, labels) in enumerate(loader, start=start_step + 1):
         input_ids = input_ids.to(args.device)
         labels = labels.to(args.device)
@@ -32,53 +107,105 @@ def train_epoch(epoch, loader, iters, start_step=0, wandb=None):
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
 
+        valid_label_tokens = int((labels != -100).sum().item())
+        if valid_label_tokens == 0:
+            Logger(
+                f'Epoch:[{epoch + 1}/{args.epochs}]({step}/{iters}), '
+                f'skipped_no_supervision, valid_label_tokens: 0'
+            )
+            if step % args.save_interval == 0 and step != iters and is_main_process():
+                if effective_backward_count == 0:
+                    save_training_state(
+                        epoch,
+                        step,
+                        wandb=wandb,
+                        reason='periodic_no_pending_grad',
+                        requested_step=step,
+                    )
+                elif pending_save_step is None:
+                    pending_save_step = step
+                    Logger(
+                        f'Checkpoint save deferred from micro-step {step} '
+                        f'until next optimizer update boundary'
+                    )
+            del input_ids, labels
+            continue
+
         with autocast_ctx:
             res = model(input_ids, labels=labels)
-            loss = res.loss + res.aux_loss
-            loss = loss / args.accumulation_steps
+            logits_loss = res.loss
+            aux_loss = res.aux_loss if res.aux_loss is not None else input_ids.new_zeros((), dtype=torch.float32)
+            total_loss = logits_loss + aux_loss
+
+        ensure_finite_tensor('logits_loss', logits_loss, epoch, step, valid_label_tokens, lr)
+        ensure_finite_tensor('aux_loss', aux_loss, epoch, step, valid_label_tokens, lr)
+        ensure_finite_tensor('loss', total_loss, epoch, step, valid_label_tokens, lr)
+
+        loss = total_loss / args.accumulation_steps
 
         scaler.scale(loss).backward()
+        effective_backward_count += 1
+        last_valid_label_tokens = valid_label_tokens
 
-        if step % args.accumulation_steps == 0:
-            scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
-
-            scaler.step(optimizer)
-            scaler.update()
-
-            optimizer.zero_grad(set_to_none=True)
+        if effective_backward_count == args.accumulation_steps:
+            apply_optimizer_update(epoch, step, last_valid_label_tokens, lr)
+            effective_backward_count = 0
+            if pending_save_step is not None and is_main_process():
+                save_training_state(
+                    epoch,
+                    step,
+                    wandb=wandb,
+                    reason='deferred_periodic',
+                    requested_step=pending_save_step,
+                )
+                pending_save_step = None
 
         if step % args.log_interval == 0 or step == iters:
             spend_time = time.time() - start_time
-            current_loss = loss.item() * args.accumulation_steps
-            current_aux_loss = res.aux_loss.item() if res.aux_loss is not None else 0.0
-            current_logits_loss = current_loss - current_aux_loss
+            current_loss = total_loss.item()
+            current_aux_loss = aux_loss.item()
+            current_logits_loss = logits_loss.item()
             current_lr = optimizer.param_groups[-1]['lr']
             eta_min = spend_time / max(step - start_step, 1) * (iters - step) // 60
             Logger(f'Epoch:[{epoch + 1}/{args.epochs}]({step}/{iters}), loss: {current_loss:.4f}, logits_loss: {current_logits_loss:.4f}, aux_loss: {current_aux_loss:.4f}, lr: {current_lr:.8f}, epoch_time: {eta_min:.1f}min')
             if wandb: wandb.log({"loss": current_loss, "logits_loss": current_logits_loss, "aux_loss": current_aux_loss, "learning_rate": current_lr, "epoch_time": eta_min})
 
-        if (step % args.save_interval == 0 or step == iters) and is_main_process():
-            model.eval()
-            moe_suffix = '_moe' if lm_config.use_moe else ''
-            ckp = f'{args.save_dir}/{args.save_weight}_{lm_config.hidden_size}{moe_suffix}.pth'
-            raw_model = model.module if isinstance(model, DistributedDataParallel) else model
-            raw_model = getattr(raw_model, '_orig_mod', raw_model)
-            state_dict = raw_model.state_dict()
-            torch.save({k: v.half().cpu() for k, v in state_dict.items()}, ckp)
-            lm_checkpoint(lm_config, weight=args.save_weight, model=model, optimizer=optimizer, 
-                         epoch=epoch, step=step, wandb=wandb, save_dir='../checkpoints', scaler=scaler)
-            model.train()
-            del state_dict
+        if step % args.save_interval == 0 and step != iters and is_main_process():
+            if effective_backward_count == 0:
+                save_training_state(
+                    epoch,
+                    step,
+                    wandb=wandb,
+                    reason='periodic',
+                    requested_step=step,
+                )
+            elif pending_save_step is None:
+                pending_save_step = step
+                Logger(
+                    f'Checkpoint save deferred from micro-step {step} '
+                    f'until next optimizer update boundary'
+                )
 
-        del input_ids, labels, res, loss
+        del input_ids, labels, res, logits_loss, aux_loss, total_loss, loss
 
-    if last_step > start_step and last_step % args.accumulation_steps != 0:
-        scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
-        scaler.step(optimizer)
-        scaler.update()
-        optimizer.zero_grad(set_to_none=True)
+    if last_step > start_step and effective_backward_count > 0:
+        lr = optimizer.param_groups[-1]['lr']
+        apply_optimizer_update(epoch, last_step, last_valid_label_tokens, lr)
+        effective_backward_count = 0
+
+    if last_step > start_step and is_main_process():
+        save_reason = 'end_of_epoch'
+        requested_step = last_step
+        if pending_save_step is not None:
+            save_reason = 'end_of_epoch_deferred_periodic'
+            requested_step = pending_save_step
+        save_training_state(
+            epoch,
+            last_step,
+            wandb=wandb,
+            reason=save_reason,
+            requested_step=requested_step,
+        )
 
 
 if __name__ == "__main__":

@@ -177,6 +177,10 @@ printf 'Writer lock coverage:\n'
 printf -- '- This official start script holds advisory flock %s for the full detached train_full_sft.py lifecycle.\n' "${writer_lock}"
 printf -- '- Directly bypassing this script and running python train_full_sft.py manually can still bypass the lock.\n'
 printf '\n'
+printf 'Checkpoint save semantics:\n'
+printf -- '- save_interval=5000 is a save request threshold, not a strict checkpoint micro-step.\n'
+printf -- '- If gradient accumulation is still in progress, the trainer defers checkpoint writing to the next completed optimizer update boundary.\n'
+printf '\n'
 printf 'Recommended Windows PowerShell follow-ups:\n'
 printf 'wsl -d Ubuntu-24.04 -- cat %s\n' "${manifest_path}"
 printf 'wsl -d Ubuntu-24.04 -- screen -ls\n'

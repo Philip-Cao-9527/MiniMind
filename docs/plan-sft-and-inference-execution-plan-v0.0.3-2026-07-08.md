@@ -1,10 +1,16 @@
 # Dense 768 Full SFT 与训练后推理验证执行计划（v0.0.3，2026-07-08）
 
+> 2026-07-08 更新：原计划对应的第一次 Dense 768 full SFT 已于 2026-07-08 07:00 左右启动，并在 `step=10000` 附近出现多次 `loss: nan` 后由用户主动 `SIGINT` 中断。该次 partial full SFT 不可用于验收、不可用于推理、不可用于 resume。后续执行对象改为一次新的、从 `pretrain` 权重开始的干净 full SFT。正式 `v0.0.3` fix-report 仍只能在新的 full SFT 完成且推理 / cache / EOS / history 验证完成后生成。
+
 ## 1. 目标、范围与明确不做的事情
 
-本计划只服务后续 `Dense 768` full SFT 与训练后推理验证的人工执行阶段。当前阶段只完成：
+本计划现阶段只服务一次新的 `Dense 768` full SFT 干净重启与训练后推理验证的人工执行阶段。当前阶段只完成：
 
 - 锁定 full SFT 参数方案
+- 完成 NaN 数据根因诊断
+- 修复 `SFTDataset` 截断语义
+- 修复 full SFT 训练侧的无监督 batch、非有限数值与 accumulation / checkpoint 对齐语义
+- 归档第一次中断的 partial full SFT 工件
 - 修订执行前操作手册
 - 增补 `eval_llm.py` 的最小本地验证能力
 - 新增 WSL 启动与监控脚本，供未来从 Windows PowerShell 手动调用
@@ -37,11 +43,15 @@
 
 ### 2.1 当前代码状态与上游差异边界
 
-当前必须准确区分三个事实：
+当前必须准确区分以下事实：
 
 - 在本轮推理验证准备前，关键训练、数据集与推理文件曾与上游参考同名文件一致。
+- 当前 `dataset/lm_dataset.py` 已修复为“先在完整 token 序列上生成 labels，再对 `input_ids` 与 `labels` 同步裁剪到优先保留尾部 assistant 回复的窗口”。
+- 当前 `trainer/train_full_sft.py` 已修复：
+  - `valid_label_tokens == 0` 时不再进入 forward / backward / optimizer.step
+  - 非有限 `logits_loss`、`aux_loss`、总 `loss` 与 `grad_norm` 会立即失败并保留现场
+  - checkpoint 只在无未落地累积梯度的边界写入，`save_interval` 只代表保存请求阈值
 - 当前 `eval_llm.py` 已在上游实现基础上做了最小本地增强。
-- `train_full_sft.py`、`trainer_utils.py`、`lm_dataset.py`、模型训练主链路仍未为本轮参数方案改写。
 
 当前 `eval_llm.py` 的本地差异只服务后续人工验证，目的如下：
 
@@ -85,7 +95,14 @@
 - 最终 resume checkpoint：`/home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pth`
 - 预训练最终到达：`Epoch:[1/1](635119/635119)`
 - 当前没有运行中的 `train_pretrain.py` 或 `train_full_sft.py` writer
-- 当前没有现成 full SFT 权重、checkpoint、日志或 `.tmp` 工件
+- 第一次中断的 partial full SFT 工件已归档到：
+  - `../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/`
+- 新一轮 full SFT 的原始启动路径已清空：
+  - `out/full_sft_768.pth`
+  - `checkpoints/full_sft_768.pth`
+  - `checkpoints/full_sft_768_resume.pth`
+  - `checkpoints/full_sft_768.pth.tmp`
+  - `checkpoints/full_sft_768_resume.pth.tmp`
 - 当前 `screen -ls` 返回 `No Sockets found`
 
 full SFT 首次启动必须使用：
@@ -163,7 +180,7 @@ full SFT 首次启动必须使用：
 与资源边界相关的工程解释：
 
 - `num_workers=0` 只是降低 worker 常驻内存压力的工程选择，不能写成“已解决历史 host RSS / swap 问题”。
-- `save_interval=5000` 只可写成“参考 pretrain 受控恢复中的低频保存经验”，不能写成“已被 full SFT 验证安全”。
+- `save_interval=5000` 只可写成“保存请求阈值”。在 `accumulation_steps=6` 下，checkpoint 的实际保存 step 可能略晚于 `5000` 的整数倍，因为必须等待到下一次有效 optimizer update 边界。
 - 真实耗时不得写成固定值，尤其不能引用或暗示“3 小时”。两轮 `384` 的静态计算规模明显大于刚完成的 `128` 长度预训练，真实耗时只能在运行后记录。
 
 ## 6. 学习率调度、micro-step 与 update 的边界
@@ -183,6 +200,12 @@ full SFT 首次启动必须使用：
 - `save_interval=5000` 时每个 epoch 的预计保存次数：`182`
 - 2 epoch 的预计保存次数：`364`
 - 最大恢复损失窗口：`4999` micro-step
+
+当前必须补充理解：
+
+- `save_interval` 是保存请求阈值，不是严格 checkpoint micro-step。
+- 如果阈值命中时仍存在未落地的有效累积梯度，训练代码会把保存请求延后到下一次真正完成的 optimizer update 后再写 checkpoint。
+- 无监督 batch 被跳过时，不参与有效梯度累积计数，也不会造成“已跳过 micro-step 但未落地梯度却被 resume 视为已完成”的状态错位。
 
 ## 7. WSL 官方脚本与 writer lock 覆盖范围
 
@@ -294,6 +317,11 @@ wsl -d Ubuntu-24.04 -- bash /home/harry/projects/MiniMind/scripts/start_full_sft
 - `--from_weight pretrain`
 - `--from_resume 0`
 
+必须明确：
+
+- 后续启动是一次新的干净 full SFT，不是继续第一次已中断 run。
+- 绝不能从第一次 partial full SFT 的普通权重或 resume checkpoint 恢复。
+
 ## 10. 在 Windows PowerShell 执行：核验 screen、PID、日志与 manifest
 
 启动脚本成功后，先读取 manifest：
@@ -398,7 +426,8 @@ wsl -d Ubuntu-24.04 -- stat -c "%n | size=%s bytes | mtime=%y" /home/harry/proje
 
 验收目标：
 
-- 训练自然结束或按计划受控停止
+- 原计划中的第一次 full SFT 已中断，不可用于验收
+- 后续新的 full SFT 需要自然结束或按计划受控停止
 - 最终权重存在
 - 最终 resume checkpoint 存在
 - 日志中能确认 2 epoch 的最终进度
@@ -527,6 +556,7 @@ wsl -d Ubuntu-24.04 -- bash -lc "cd /home/harry/projects/MiniMind && ./.venv/bin
 
 未来允许生成 `docs/fix-report-v0.0.3-dense-768-full-sft-and-inference-validation-2026-07-08.md` 的前提是以下证据齐全：
 
+- 新的一次干净 full SFT 启动命令（不是第一次已中断 run）
 - 真实 full SFT 启动命令
 - 真实 full SFT 日志路径与尾部证据
 - `out/full_sft_768.pth` 的 `stat`

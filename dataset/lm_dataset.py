@@ -96,21 +96,36 @@ class SFTDataset(Dataset):
                     if input_ids[end:end + len(self.eos_id)] == self.eos_id:
                         break
                     end += 1
-                for j in range(start, min(end + len(self.eos_id), self.max_length)):
+                for j in range(start, min(end + len(self.eos_id), len(input_ids))):
                     labels[j] = input_ids[j]
                 i = end + len(self.eos_id) if end < len(input_ids) else len(input_ids)
             else:
                 i += 1
         return labels
 
+    def truncate_to_target_window(self, input_ids, labels):
+        if len(input_ids) > self.max_length:
+            window_start = len(input_ids) - self.max_length
+            input_ids = input_ids[window_start:]
+            labels = labels[window_start:]
+        return input_ids, labels
+
+    def pad_sample(self, input_ids, labels):
+        pad_len = self.max_length - len(input_ids)
+        if pad_len > 0:
+            input_ids = input_ids + [self.tokenizer.pad_token_id] * pad_len
+            labels = labels + [-100] * pad_len
+        return input_ids, labels
+
     def __getitem__(self, index):
         sample = self.samples[index]
         conversations = pre_processing_chat(sample['conversations'])
         prompt = self.create_chat_prompt(conversations)
         prompt = post_processing_chat(prompt)
-        input_ids = self.tokenizer(prompt).input_ids[:self.max_length]
-        input_ids += [self.tokenizer.pad_token_id] * (self.max_length - len(input_ids))
+        input_ids = self.tokenizer(prompt).input_ids
         labels = self.generate_labels(input_ids)
+        input_ids, labels = self.truncate_to_target_window(input_ids, labels)
+        input_ids, labels = self.pad_sample(input_ids, labels)
         # # === 调试打印 ===
         # print(f"\n--- Sample {index} ---")
         # for i, (x, y) in enumerate(zip(input_ids[:-1], labels[1:])):

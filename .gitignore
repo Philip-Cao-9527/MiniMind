@@ -29,3 +29,15 @@ __pycache__/
 wandb/
 swanlog/
 .runs/
+
+# MiniMind local training artifacts
+out/
+checkpoints/
+experiments/logs/
+experiments/interrupted/
+*.pth.tmp
+*.pt.tmp
+*.ckpt
+*.ckpt.tmp
+*.bin
+*:Zone.Identifier
