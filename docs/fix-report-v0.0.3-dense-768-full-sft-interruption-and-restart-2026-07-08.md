@@ -40,15 +40,16 @@
 
 第一次中断 run 的 partial 工件已移出官方启动路径，归档目录为：
 
-`experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/`
+`../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/`
 
 当前归档目录中保留：
 
-- [checkpoints/full_sft_768.pth](../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/checkpoints/full_sft_768.pth)
-- [checkpoints/full_sft_768_resume.pth](../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/checkpoints/full_sft_768_resume.pth)
-- [checkpoints/full_sft_768_resume.pth.tmp](../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/checkpoints/full_sft_768_resume.pth.tmp)
-- [full-sft-dense-768-e2-20260708-070010.log](../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log)
-- [full-sft-current-run.env](../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-current-run.env)
+- [README.md](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/README.md)
+- [checkpoints/full_sft_768.pth](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/checkpoints/full_sft_768.pth)
+- [checkpoints/full_sft_768_resume.pth](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/checkpoints/full_sft_768_resume.pth)
+- [checkpoints/full_sft_768_resume.pth.tmp](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/checkpoints/full_sft_768_resume.pth.tmp)
+- [full-sft-dense-768-e2-20260708-070010.log](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log)
+- [full-sft-current-run.env](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-current-run.env)
 
 归档前已记录到 `out/full_sft_768.pth` 的存在证据：
 

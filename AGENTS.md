@@ -25,7 +25,7 @@
 - 项目主目标：看懂当前 MiniMind 主线源码，解释模型、数据、训练、推理之间的调用关系，手写并对照复现关键模块，用最小实验验证真实行为。
 - 核心边界：本仓库不是上游 MiniMind 的机械镜像，不把上游 README、教程话术、示例成果或未运行实验写成个人成果。
 - 资料优先级：当前本地仓库事实优先；其次是个人 GitHub 远端；再核验上游 `jingyaogong/minimind`；`learn-minimind` 只用于学习顺序、理解辅助和面试追问准备。
-- 当前仓库根目录真实可见内容以本轮命令为准。当前已存在的长期项目文件包括 [README.md](README.md)、[.gitignore](.gitignore)、[.envrc](.envrc)、[AGENTS.md](AGENTS.md)、[docs/minimind-roadmap.md](docs/minimind-roadmap.md)、[docs/minimind-source-guide.md](docs/minimind-source-guide.md) 和 [docs/experiment-tiny-pretrain-one-batch-2026-07-04.md](docs/experiment-tiny-pretrain-one-batch-2026-07-04.md)。MiniMind 专用 personal skills 已移动到 `../../.codex/skills/minimind-*`，例如 [minimind-code-reviewer/SKILL.md](../../.codex/skills/minimind-code-reviewer/SKILL.md)、[minimind-knowledge-explainer/SKILL.md](../../.codex/skills/minimind-knowledge-explainer/SKILL.md)、[minimind-plan-mode-planner/SKILL.md](../../.codex/skills/minimind-plan-mode-planner/SKILL.md)、[minimind-prompt-creator/SKILL.md](../../.codex/skills/minimind-prompt-creator/SKILL.md)、[minimind-skill-creator/SKILL.md](../../.codex/skills/minimind-skill-creator/SKILL.md)、[minimind-web-search/SKILL.md](../../.codex/skills/minimind-web-search/SKILL.md)。阶段性报告统一从 `docs/` 中按任务相关性读取，不固定写入本规则。
+- 当前仓库根目录真实可见内容以本轮命令为准。长期项目基线至少包括 [README.md](README.md)、[.gitignore](.gitignore)、[.envrc](.envrc)、[AGENTS.md](AGENTS.md)、[docs/minimind-roadmap.md](docs/minimind-roadmap.md)、[docs/minimind-source-guide.md](docs/minimind-source-guide.md) 以及 `docs/` 下按主题沉淀的实验、计划、修复报告、code review 和知识讲解文档。不要把某个带日期的阶段性文件写成长期固定清单；若仓库文档继续增加，应按目录语义读取，而不是依赖过期文件名列表。MiniMind 专用 personal skills 已移动到 `../../.codex/skills/minimind-*`，例如 [minimind-code-reviewer/SKILL.md](../../.codex/skills/minimind-code-reviewer/SKILL.md)、[minimind-knowledge-explainer/SKILL.md](../../.codex/skills/minimind-knowledge-explainer/SKILL.md)、[minimind-plan-mode-planner/SKILL.md](../../.codex/skills/minimind-plan-mode-planner/SKILL.md)、[minimind-prompt-creator/SKILL.md](../../.codex/skills/minimind-prompt-creator/SKILL.md)、[minimind-skill-creator/SKILL.md](../../.codex/skills/minimind-skill-creator/SKILL.md)、[minimind-web-search/SKILL.md](../../.codex/skills/minimind-web-search/SKILL.md)。阶段性报告统一从 `docs/` 中按任务相关性读取，不固定写入本规则。
 - 当前 `model/`、`trainer/`、`dataset/` 下已有本地源码文件，`experiments/` 下已有极小实验材料，`scripts/`、`tests/` 目录也已出现；这些内容当前仍有未提交改动或未跟踪文件。引用它们时必须先确认本轮 Git 状态、文件内容和验证记录，不要把上游源码或未验证实验默认写成本仓库已完成基线。
 
 ## 3. 顶层代码生成约束
@@ -59,8 +59,11 @@
 ## 5. 文档与报告目录规则
 
 - [README.md](README.md) 面向项目展示、长期目标和当前边界，不写未验证实验成果。
-- `docs/` 面向源码理解、模块拆解、实验记录、问题复盘、修复报告和阶段计划。当前不区分 `docs/experiments/` 与 `docs/reports/` 子目录，新增 Markdown 文档默认直接放在 `docs/` 下，并按主题命名。
-- 实验记录和修复报告也放在 `docs/` 下，并通过文件名区分用途，例如 `experiment-*.md`、`fix-report-*.md`、`source-map.md`、`call-chain-*.md`。
+- `docs/` 面向源码理解、模块拆解、实验记录、问题复盘、修复报告和阶段计划。当前已存在 `docs/knowledge/` 与 `docs/asset/` 子目录，但仍不单独拆 `docs/reports/` 或 `docs/experiments/`；除知识讲解和资源素材外，新增 Markdown 文档默认直接放在 `docs/` 下，并按主题命名。
+- 知识讲解类文档统一放在 `docs/knowledge/`，用于沉淀源码讲解、概念拆解、面试讲稿和学习型说明；不要再把这类文档散落到 `docs/` 根目录。
+- 图片、导出图和其他文档素材统一放在 `docs/asset/` 或其后续同类资源子目录；不要把二进制素材与 Markdown 主文档混放。
+- 实验记录、计划、修复报告和 code review 文档当前继续放在 `docs/` 根目录，并通过文件名前缀区分用途，例如 `experiment-*.md`、`plan-*.md`、`fix-report-*.md`、`code-review-*.md`、`source-map.md`、`call-chain-*.md`。
+- 生成 code review 文档时，文件名必须以 `code-review-` 为前缀；如需长期保留，默认放在 `docs/` 下，除非用户明确指定其他已存在子目录。
 - 新增文档前先确认是否已有合适位置；不要把一次性过程记录塞进长期用户文档，也不要把长期规则藏在临时报告里。
 - 生成文档时，本仓库内已存在的具体文件必须使用可跳转 Markdown 相对链接；仓库外但位于本机的具体参考文件也必须使用相对链接，并按当前 Markdown 文件所在目录计算目标路径。例如 `docs/` 下链接到上游引用时使用 `../../../references/...`。
 - 具体证据优先链接到真实文件名；能定位到行号时使用 `[文件名](相对路径#L行号)`，不要使用 `[文件名](相对路径:行号)`，也不要把本机绝对路径写进 Markdown 链接目标。
@@ -104,9 +107,10 @@
 
 ## 7. 版本号演进规则
 
-- 当前已知版本：[README.md](README.md) 徽章标注 `v0.0.1`。
+- 当前已知版本：[README.md](README.md) 徽章标注 `v0.0.3`。
 - 当前仓库尚无独立版本文件。创建正式版本机制前，不要编造 `VERSION`、`pyproject.toml` 或其他不存在的版本来源。
-- 版本占位符用于升版和报告生成时统一替换：`{{当前版本}}` 当前对应 `v0.0.1`；`{{版本文件}}` 当前对应 [README.md](README.md)，因为尚无独立版本文件；`{{README版本位置}}` 当前对应 [README.md](README.md) 顶部徽章。
+- 版本占位符用于升版和报告生成时统一替换：`{{当前版本}}` 当前对应 `v0.0.3`；`{{版本文件}}` 当前对应 [README.md](README.md)，因为尚无独立版本文件；`{{README版本位置}}` 当前对应 [README.md](README.md) 顶部徽章。
+- `docs/` 中可能出现 `v0.0.2`、`v0.0.3` 等阶段性计划或修复报告文件名，这些可以作为任务闭环编号的一部分，但项目当前对外版本是否已更新，必须以 [README.md](README.md) 或后续正式版本文件中的真实版本声明为准。
 - 版本起点：以 [README.md](README.md) 中当前可核验版本为准。
 - 其他版本位置：提交前用 `rg -n "v[0-9]+\\.[0-9]+\\.[0-9]+|version" README.md .` 核验，不要静默跳过。
 
@@ -121,6 +125,7 @@
 - 用户没有明确要求 bump 时，默认在当前版本继续修改。
 - 纯文档、说明文字、技能 / 指令文件、格式整理、注释修正默认不修改版本号。
 - 不要为了显得进展大而随意升版；版本号必须对应真实改动。
+- 每次修改项目版本号时，必须同步更新 [README.md](README.md) 中的版本显示；当前在没有独立版本文件的前提下，README 徽章就是项目对外版本的主声明，不能只改报告文件名或计划文档而不改 README。
 - 每次修改项目版本号时，必须同步检查所有写有当前版本号的位置，包括 [README.md](README.md)、修复报告文件名、用户可见版本显示、包管理配置或其他项目实际版本位置。
 - 如果某些版本位置历史上不一致，必须说明处理方式，不能静默跳过。
 

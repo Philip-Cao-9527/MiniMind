@@ -11,7 +11,7 @@
 本项目沿着这条链路逐段拆解数据、模型、训练与生成过程，手撕关键实现，并通过测试与实验确认每个模块的输入、计算和输出是否真正符合预期。
 
 <p>
-  <img alt="version" src="https://img.shields.io/badge/version-v0.0.1-4c6ef5">
+  <img alt="version" src="https://img.shields.io/badge/version-v0.0.3-4c6ef5">
   <img alt="language" src="https://img.shields.io/badge/language-Python-3776AB">
   <img alt="platform" src="https://img.shields.io/badge/platform-WSL2%20%7C%20Ubuntu%2024.04-5E5CE6">
   <img alt="reference" src="https://img.shields.io/badge/reference-MiniMind-8A2BE2">

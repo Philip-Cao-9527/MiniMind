@@ -7,8 +7,8 @@
 - 数据语义：[lm_dataset.py](../dataset/lm_dataset.py#L58)
 - 训练循环：[train_full_sft.py](../trainer/train_full_sft.py#L24)
 - 只读诊断脚本：[diagnose_sft_supervision.py](../scripts/diagnose_sft_supervision.py#L19)
-- 中断日志：[full-sft-dense-768-e2-20260708-070010.log](../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L67)
-- partial 工件归档目录：`experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/`
+- 中断日志：[full-sft-dense-768-e2-20260708-070010.log](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L67)
+- partial 工件归档目录：`../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/`
 
 本报告保持 `minimind-code-reviewer` 风格：`findings first`，先写问题、证据、影响、建议修复和最小验证，再写已验证事实与剩余风险。
 
@@ -23,7 +23,7 @@
 - 位置：
   - [lm_dataset.py](../dataset/lm_dataset.py#L88)
   - [diagnose_sft_supervision.py](../scripts/diagnose_sft_supervision.py#L79)
-  - [full-sft-dense-768-e2-20260708-070010.log](../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L67)
+  - [full-sft-dense-768-e2-20260708-070010.log](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L67)
 - 证据：
   - 本轮只读诊断按 `setup_seed(42)`、`torch.randperm(len(train_ds))`、`max_seq_len=384`、前 `10000` 个 micro-step 复现样本顺序。
   - 旧行为下前 `10000` step 中共有 `136` 个样本 `labels` 全为 `-100`；你给出的 NaN step `980 / 1060 / 1880 / 2960 / 4800 / 7580 / 8220 / 8840` 全部命中这些 zero-supervision step。
@@ -47,7 +47,7 @@
 - 证据：
   - 当前模型 loss 仍使用 `F.cross_entropy(..., ignore_index=-100)`，[model_minimind.py](../model/model_minimind.py#L266) 没有额外保护。
   - CPU toy 验证中，全部 `labels=-100` 时 `loss=nan` 且 `isfinite=False`；混合有效标签时 `loss` 为有限值。
-  - 中断日志已多次记录 `loss: nan, logits_loss: nan`，例如 [log#L67](../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L67)、[log#L112](../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L112)、[log#L397](../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L397)、[log#L460](../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L460)。
+  - 中断日志已多次记录 `loss: nan, logits_loss: nan`，例如 [log#L67](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L67)、[log#L112](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L112)、[log#L397](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L397)、[log#L460](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L460)。
 - 影响：
   - 只要 zero-supervision batch 进入 forward/loss，NaN 就可能沿着 backward、梯度累积和 checkpoint 保存继续污染后续训练。
   - 即使单个 batch 的 NaN 是数据诱发的，训练侧若不显式 fail-fast，就无法准确保留现场。
@@ -64,11 +64,11 @@
 
 - 位置：
   - [train_full_sft.py](../trainer/train_full_sft.py#L173)
-  - [full-sft-dense-768-e2-20260708-070010.log](../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L518)
-  - [README.md](../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/README.md)
+  - [full-sft-dense-768-e2-20260708-070010.log](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L518)
+  - [README.md](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/README.md)
 - 证据：
   - 首次 run 的配置是 `accumulation_steps=6`、`save_interval=5000`，两者不对齐。
-  - 日志显示训练在 `step=10000` 左右被用户主动 `SIGINT`，且堆栈停在 `torch.save(resume_data, resume_tmp)`，[log#L519](../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L519) 到 [log#L529](../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L529) 可见。
+  - 日志显示训练在 `step=10000` 左右被用户主动 `SIGINT`，且堆栈停在 `torch.save(resume_data, resume_tmp)`，[log#L519](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L519) 到 [log#L529](../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/experiments/logs/full-sft-dense-768-e2-20260708-070010.log#L529) 可见。
   - 归档前记录到：
     - 普通权重 `out/full_sft_768.pth`：`mtime=2026-07-08 07:06:42`
     - 普通 checkpoint `checkpoints/full_sft_768.pth`：`mtime=2026-07-08 07:06:43`
@@ -89,7 +89,7 @@
 
 - 第一次 Dense 768 full SFT 于 `2026-07-08 07:00` 左右启动，并在 `step=10000` 附近被用户主动 `SIGINT` 中断。
 - 本轮没有启动新的训练、没有推理、没有加载模型权重；数据诊断只加载了本地 tokenizer 和真实 JSONL。
-- partial 工件已移出官方启动路径，归档目录为 `experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/`。
+- partial 工件已移出官方启动路径，归档目录为 `../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/`。
 - 当前原始 full SFT 路径已清空：
   - `out/full_sft_768.pth`
   - `checkpoints/full_sft_768.pth`

@@ -28,10 +28,10 @@
 证据优先级按以下顺序执行：
 
 1. 本轮只读核验到的本机代码、Git 状态、权重、checkpoint、日志、数据集和系统状态
-2. [fix-report-v0.0.2-dense-768-pretrain-completion-2026-07-08.md](fix-report-v0.0.2-dense-768-pretrain-completion-2026-07-08.md)
-3. [minimind-initial-pretrain-full-retrospective-updated.md](minimind-initial-pretrain-full-retrospective-updated.md)
-4. [minimind-pretrain-resume-incident-20260708.md](minimind-pretrain-resume-incident-20260708.md)
-5. [pretrain-sft-manual-runbook-2026-07-07.md](pretrain-sft-manual-runbook-2026-07-07.md)
+2. [fix-report-v0.0.2-FINAL-dense-768-pretrain-completion-2026-07-08.md](fix-report-v0.0.2-FINAL-dense-768-pretrain-completion-2026-07-08.md)
+3. [fix-report-v0.0.2-minimind-initial-pretrain-full-retrospective-updated.md](fix-report-v0.0.2-minimind-initial-pretrain-full-retrospective-updated.md)
+4. [fix-report-v0.0.2-minimind-pretrain-resume-incident-20260708.md](fix-report-v0.0.2-minimind-pretrain-resume-incident-20260708.md)
+5. [plan-pretrain-sft-manual-runbook-plan-v0.0.2-2026-07-07.md](plan-pretrain-sft-manual-runbook-plan-v0.0.2-2026-07-07.md)
 6. `/home/harry/references/minimind`
 7. 上游公开 README 或其他公开材料
 8. `/home/harry/references/learn-minimind`
@@ -93,10 +93,10 @@
 
 - 最终预训练权重：`/home/harry/projects/MiniMind/out/pretrain_768.pth`
 - 最终 resume checkpoint：`/home/harry/projects/MiniMind/checkpoints/pretrain_768_resume.pth`
-- 预训练最终到达：`Epoch:[1/1](635119/635119)`
+- 预训练最终到达：`Epoch 1/1, step 635119/635119`
 - 当前没有运行中的 `train_pretrain.py` 或 `train_full_sft.py` writer
 - 第一次中断的 partial full SFT 工件已归档到：
-  - `../experiments/interrupted/full-sft-dense768-e2-20260708-070010-nan-and-sigint/`
+  - `../../../backups/MiniMind/local-artifacts/interrupted-20260708-151025/full-sft-dense768-e2-20260708-070010-nan-and-sigint/`
 - 新一轮 full SFT 的原始启动路径已清空：
   - `out/full_sft_768.pth`
   - `checkpoints/full_sft_768.pth`
