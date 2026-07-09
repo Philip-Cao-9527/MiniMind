@@ -15,16 +15,24 @@ writer_lock="${checkpoints_dir}/full_sft_subset_768.writer.lock"
 manifest_path="${logs_dir}/full-sft-subset-current-run.env"
 monitor_script="${project_root}/scripts/monitor_full_sft_subset_memory.sh"
 
-subset_epochs="${SFT_SUBSET_EPOCHS:-1}"
-subset_max_samples="${SFT_SUBSET_MAX_SAMPLES:-50000}"
+subset_epochs="${SFT_SUBSET_EPOCHS:-2}"
+subset_max_samples="${SFT_SUBSET_MAX_SAMPLES:-100000}"
 subset_ratio="${SFT_SUBSET_RATIO:-1.0}"
 subset_seed="${SFT_SUBSET_SEED:-42}"
 subset_mode="${SFT_SUBSET_MODE:-random}"
+subset_use_swanlab="${SFT_SUBSET_USE_SWANLAB:-1}"
+subset_wandb_project="${SFT_SUBSET_WANDB_PROJECT:-MiniMind-Full-SFT-Subset}"
+
+if [[ "${subset_use_swanlab}" != "0" && "${subset_use_swanlab}" != "1" ]]; then
+  printf 'ERROR: SFT_SUBSET_USE_SWANLAB must be 0 or 1, got: %s\n' "${subset_use_swanlab}" >&2
+  exit 1
+fi
 
 run_id="$(date +%Y%m%d-%H%M%S)"
-session_name="minimind-full-sft-subset-dense768-e1-${run_id}"
-log_path="${logs_dir}/full-sft-subset-dense-768-e1-${run_id}.log"
-monitor_csv_path="${logs_dir}/full-sft-subset-dense-768-e1-${run_id}-memory.csv"
+run_epoch_label="e${subset_epochs}"
+session_name="minimind-full-sft-subset-dense768-${run_epoch_label}-${run_id}"
+log_path="${logs_dir}/full-sft-subset-dense-768-${run_epoch_label}-${run_id}.log"
+monitor_csv_path="${logs_dir}/full-sft-subset-dense-768-${run_epoch_label}-${run_id}-memory.csv"
 runner_script="$(mktemp /tmp/minimind-full-sft-subset-runner-XXXXXX.sh)"
 
 cleanup_runner_on_error() {
@@ -125,10 +133,18 @@ printf '[INFO] log_path=%s\n' "\${log_path}" | tee -a "\${log_path}"
 printf '[INFO] save_weight=full_sft_subset\n' | tee -a "\${log_path}"
 printf '[INFO] from_weight=pretrain\n' | tee -a "\${log_path}"
 printf '[INFO] from_resume=0\n' | tee -a "\${log_path}"
+printf '[INFO] epochs=%s\n' "${subset_epochs}" | tee -a "\${log_path}"
+printf '[INFO] use_swanlab=%s\n' "${subset_use_swanlab}" | tee -a "\${log_path}"
+printf '[INFO] wandb_project=%s\n' "${subset_wandb_project}" | tee -a "\${log_path}"
 printf '[INFO] max_train_samples=%s\n' "${subset_max_samples}" | tee -a "\${log_path}"
 printf '[INFO] train_sample_ratio=%s\n' "${subset_ratio}" | tee -a "\${log_path}"
 printf '[INFO] train_subset_seed=%s\n' "${subset_seed}" | tee -a "\${log_path}"
 printf '[INFO] train_subset_mode=%s\n' "${subset_mode}" | tee -a "\${log_path}"
+
+wandb_args=()
+if [[ "${subset_use_swanlab}" == "1" ]]; then
+  wandb_args+=(--use_wandb --wandb_project "${subset_wandb_project}")
+fi
 
 set -o pipefail
 "\${python_bin}" -u train_full_sft.py \\
@@ -153,6 +169,7 @@ set -o pipefail
   --train_sample_ratio ${subset_ratio} \\
   --train_subset_seed ${subset_seed} \\
   --train_subset_mode ${subset_mode} \\
+  "\${wandb_args[@]}" \\
   2>&1 | tee -a "\${log_path}"
 EOF
 chmod +x "${runner_script}"
@@ -187,6 +204,8 @@ TRAIN_SAMPLE_RATIO='${subset_ratio}'
 TRAIN_SUBSET_SEED='${subset_seed}'
 TRAIN_SUBSET_MODE='${subset_mode}'
 EPOCHS='${subset_epochs}'
+USE_SWANLAB='${subset_use_swanlab}'
+WANDB_PROJECT='${subset_wandb_project}'
 EOF
 
 trap - EXIT
@@ -197,6 +216,9 @@ printf 'MONITOR_CSV_PATH=%s\n' "${monitor_csv_path}"
 printf 'MANIFEST_PATH=%s\n' "${manifest_path}"
 printf 'WRITER_LOCK=%s\n' "${writer_lock}"
 printf 'MAX_TRAIN_SAMPLES=%s\n' "${subset_max_samples}"
+printf 'EPOCHS=%s\n' "${subset_epochs}"
+printf 'USE_SWANLAB=%s\n' "${subset_use_swanlab}"
+printf 'WANDB_PROJECT=%s\n' "${subset_wandb_project}"
 printf 'SAVE_WEIGHT=full_sft_subset\n'
 printf '\n'
 printf 'Recommended Windows PowerShell follow-ups:\n'

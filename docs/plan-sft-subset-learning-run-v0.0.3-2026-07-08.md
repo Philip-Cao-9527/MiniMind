@@ -30,7 +30,7 @@ subset 启动脚本是 [start_full_sft_dense768_subset_e1.sh](../scripts/start_f
 
 默认参数：
 
-- `epochs=1`
+- `epochs=2`
 - `batch_size=1`
 - `max_seq_len=384`
 - `accumulation_steps=6`
@@ -47,10 +47,18 @@ subset 启动脚本是 [start_full_sft_dense768_subset_e1.sh](../scripts/start_f
 - `from_resume=0`
 - `save_weight=full_sft_subset`
 - `save_dir=../out`
-- `max_train_samples=50000`
+- `max_train_samples=100000`
 - `train_sample_ratio=1.0`
 - `train_subset_seed=42`
 - `train_subset_mode=random`
+- `use_swanlab=1`
+- `wandb_project=MiniMind-Full-SFT-Subset`
+
+补充说明：
+
+- 更早一版脚本默认是 `subset_epochs="${SFT_SUBSET_EPOCHS:-1}"`，当时未启用 swanlab。
+- 该旧版小样本任务启动后，用户通过 `wsl -d Ubuntu-24.04 -- kill -INT 51740` 手动中断。
+- 之后脚本被改为默认 `epochs=2`，并启用 swanlab，再重新执行启动命令。
 
 ## 5. Windows PowerShell 启动方式
 
@@ -66,7 +74,7 @@ wsl -d Ubuntu-24.04 -- bash /home/harry/projects/MiniMind/scripts/start_full_sft
 wsl -d Ubuntu-24.04 -- bash /home/harry/projects/MiniMind/scripts/monitor_full_sft_subset_memory.sh
 ```
 
-如果想把训练样本进一步缩小到 `20000`：
+当前默认 subset 规模已经提高到 `100000` 条；如果想把训练样本进一步缩小到 `20000`：
 
 ```powershell
 wsl -d Ubuntu-24.04 -- bash -lc "cd /home/harry/projects/MiniMind && SFT_SUBSET_MAX_SAMPLES=20000 bash scripts/start_full_sft_dense768_subset_e1.sh"
@@ -75,7 +83,13 @@ wsl -d Ubuntu-24.04 -- bash -lc "cd /home/harry/projects/MiniMind && SFT_SUBSET_
 如果还想改 epoch，可以同样覆盖：
 
 ```powershell
-wsl -d Ubuntu-24.04 -- bash -lc "cd /home/harry/projects/MiniMind && SFT_SUBSET_EPOCHS=1 SFT_SUBSET_MAX_SAMPLES=20000 bash scripts/start_full_sft_dense768_subset_e1.sh"
+wsl -d Ubuntu-24.04 -- bash -lc "cd /home/harry/projects/MiniMind && SFT_SUBSET_EPOCHS=2 SFT_SUBSET_MAX_SAMPLES=20000 bash scripts/start_full_sft_dense768_subset_e1.sh"
+```
+
+如果你想显式关闭 swanlab，可以同样覆盖：
+
+```powershell
+wsl -d Ubuntu-24.04 -- bash -lc "cd /home/harry/projects/MiniMind && SFT_SUBSET_USE_SWANLAB=0 bash scripts/start_full_sft_dense768_subset_e1.sh"
 ```
 
 ## 6. 训练完成后的使用边界
@@ -98,11 +112,11 @@ subset run 仍然沿用当前已修复的 SFT 语义，不单独开旁路：
 - checkpoint：`checkpoints/full_sft_subset_768.pth`
 - resume checkpoint：`checkpoints/full_sft_subset_768_resume.pth`
 - 当前 run manifest：`experiments/logs/full-sft-subset-current-run.env`
-- 日志：`experiments/logs/full-sft-subset-dense-768-e1-<run_id>.log`
-- 监控 CSV：`experiments/logs/full-sft-subset-dense-768-e1-<run_id>-memory.csv`
+- 日志：`experiments/logs/full-sft-subset-dense-768-e2-<run_id>.log`
+- 监控 CSV：`experiments/logs/full-sft-subset-dense-768-e2-<run_id>-memory.csv`
 
 ## 9. 当前未完成事项
 
-- 本文档不代表真实训练已经启动或完成。
-- 本轮只覆盖代码改造、脚本准备和静态验证。
-- 真正训练、checkpoint 产出、推理文本效果与长时稳定性，仍需用户后续手动启动后再验证。
+- 本文档不代表真实训练已经完成。
+- 当前已经发生过一次旧版脚本启动并人工中断，以及一次修改脚本后的重新启动；但本文档不提供这两次 run 的完成态、checkpoint 完整性或效果验收结论。
+- 训练完成态、checkpoint 产出、推理文本效果与长时稳定性，仍需结合当前重新启动后的实际 run 结果继续验证。

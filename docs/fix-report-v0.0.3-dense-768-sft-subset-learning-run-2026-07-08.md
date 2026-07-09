@@ -63,6 +63,76 @@
   - `SFT_SUBSET_EPOCHS`
   - 以及 `SFT_SUBSET_RATIO / SFT_SUBSET_SEED / SFT_SUBSET_MODE`
 
+补充说明：
+
+- 旧版脚本默认是 `subset_epochs="${SFT_SUBSET_EPOCHS:-1}"`，即未额外传参时只跑 `1` 个 epoch。
+- 旧版脚本当时没有启用 swanlab。
+- 当前脚本已经改成 `subset_epochs="${SFT_SUBSET_EPOCHS:-2}"`，并通过 `SFT_SUBSET_USE_SWANLAB` 默认启用 swanlab。
+
+这条 Windows PowerShell 启动命令：
+
+```powershell
+wsl -d Ubuntu-24.04 -- bash /home/harry/projects/MiniMind/scripts/start_full_sft_dense768_subset_e1.sh
+```
+
+在没有额外传环境变量时，默认使用：
+
+- `SFT_SUBSET_MAX_SAMPLES=100000`
+- `SFT_SUBSET_RATIO=1.0`
+
+脚本会把它们传给训练入口：
+
+- `SFT_SUBSET_MAX_SAMPLES -> --max_train_samples`
+- `SFT_SUBSET_RATIO -> --train_sample_ratio`
+
+当前默认配置下，真正控制样本量的主参数是：
+
+- `--max_train_samples 100000`
+
+因为默认同时使用：
+
+- `--train_sample_ratio 1.0`
+
+而训练入口的最终 subset 大小规则是：
+
+`min(max_train_samples, int(len(dataset) * train_sample_ratio))`
+
+所以在当前本地验证里，原始 SFT 样本数是 `905718`，这条默认启动命令最终会取：
+
+`min(100000, int(905718 * 1.0)) = 100000`
+
+也就是说，这条命令默认会使用 `100000` 条样本做 subset 学习链路训练。
+
+本轮把默认值从 `50000` 提高到 `100000`，是为了让 subset run 更接近“有代表性的学习链路验证”，但默认仍然没有直接改成“一半样本量”。
+
+原因是按当前本地数据规模估算：
+
+- 一半样本量约为 `452859`
+- 这已经明显更接近正式长跑训练，而不是本机短跑学习链路验证
+
+因此当前默认策略是：
+
+- 默认至少 `100000`
+- 如需更激进，可由你显式覆盖 `SFT_SUBSET_RATIO=0.5` 或更大的 `SFT_SUBSET_MAX_SAMPLES`
+
+如果以后要改样本量，最直接的方式是覆盖：
+
+```powershell
+wsl -d Ubuntu-24.04 -- bash -lc "cd /home/harry/projects/MiniMind && SFT_SUBSET_MAX_SAMPLES=20000 bash scripts/start_full_sft_dense768_subset_e1.sh"
+```
+
+这时脚本内部会变成：
+
+- `--max_train_samples 20000`
+- `--train_sample_ratio 1.0`
+
+如果同时改比例，例如：
+
+- `SFT_SUBSET_MAX_SAMPLES=100000`
+- `SFT_SUBSET_RATIO=0.02`
+
+那么最终样本量仍按两者较小值决定，而不是简单只看其中一个参数。
+
 ### 3.4 监控脚本改造成 manifest 驱动
 
 [scripts/monitor_full_sft_memory.sh](../scripts/monitor_full_sft_memory.sh) 保留正式 full SFT 的默认 manifest 行为，但现在可以通过 `MANIFEST_PATH` 切换到其他 run。
@@ -95,9 +165,27 @@
 
 本轮没有为此做额外代码修改。
 
-## 4. 验收与验证
+## 4. 实际执行补充
 
-本轮只执行了静态检查与轻量只读验证，没有启动真实训练。
+在脚本改造完成后，subset run 实际经历了两次启动尝试：
+
+1. 第一次使用旧版 [scripts/start_full_sft_dense768_subset_e1.sh](../scripts/start_full_sft_dense768_subset_e1.sh) 启动，默认行为是 `epochs=1` 且未启用 swanlab。
+2. 该次任务随后由用户在 Windows PowerShell 里执行以下命令手动中断：
+
+```powershell
+wsl -d Ubuntu-24.04 -- kill -INT 51740
+```
+
+3. 中断后，脚本被修改为默认 `epochs=2`，并启用 swanlab。
+4. 随后用户重新执行了这条命令，重新发起一次 subset 小样本训练：
+
+```powershell
+wsl -d Ubuntu-24.04 -- bash /home/harry/projects/MiniMind/scripts/start_full_sft_dense768_subset_e1.sh
+```
+
+## 5. 验收与验证
+
+除静态检查与轻量只读验证外，本轮还补充记录了上述两次 subset run 启动事实；但本报告本身不提供训练完成、checkpoint 成功产出或效果验收结论。
 
 本轮已执行：
 
@@ -111,14 +199,14 @@
 - 轻量 subset 数据加载验证：只加载 tokenizer 与 `SFTDataset`，构造 100 条 `Subset`，检查长度、前几个样本取值、`input_ids.shape == labels.shape`、至少存在一个 `valid_label_tokens > 0` 的样本
 - `git diff --check`
 
-## 5. 使用边界
+## 6. 使用边界
 
 - subset run 只能写成学习链路 / 短跑验证 / smoke-style run。
 - subset 输出不能冒充正式 `full_sft_768.pth`。
 - subset 推理只能用于学习性验证，不能把单次回答写成模型能力结论。
 - 如果后续要做正式 `v0.0.3` full SFT 验收，仍需要回到正式脚本或明确全量配置。
 
-## 6. 结论
+## 7. 结论
 
 本轮交付的是：
 
@@ -130,7 +218,7 @@
 
 本轮没有交付的是：
 
-- 真实训练完成
+- 真实训练完成结论
 - subset 权重产出
 - subset 推理效果结论
 - 正式 full SFT 完成结论
